@@ -1,51 +1,77 @@
-# 🚀 Inno HUB — O‘zbek Tilidagi Dasturlash Ta’lim Platformasi
+🚀 Inno HUB — Uzbek-Language Programming Education Platform
 
-**Inno HUB** — bu o‘zbek tilida sifatli IT ta’limini ommalashtirish maqsadida yaratilgan zamonaviy ta’lim platformasi. Platforma foydalanuvchilarga video darsliklar, interaktiv kod tahrirlovchisi va shaxsiy o‘quv yo‘nalishlarini taklif etadi.
+Inno HUB is a modern educational platform designed to bring high-quality IT education in the Uzbek language. It provides video tutorials, an interactive code editor, and personalized learning paths to help learners advance in web development and programming.
 
+🛠 Technology Stack
 
+Frontend: React 19 (Vite)
 
----
+Styling: Tailwind CSS (Custom Dark Theme)
 
-## 🛠 Texnologik Stack
+Animations: Framer Motion
 
-Loyiha eng so'nggi va samarali texnologiyalar asosida qurilgan:
+Icons: Lucide-React
 
-* **Frontend:** React 19 (Vite)
-* **Styling:** Tailwind CSS (Custom Dark Theme)
-* **Animations:** Framer Motion
-* **Icons:** Lucide-React
-* **Fonts:** Inter (UI), JetBrains Mono (Code)
-* **Routing:** React Router DOM v7
+Fonts: Inter (UI), JetBrains Mono (Code)
 
----
+Routing: React Router DOM v7
 
-## ✨ Asosiy Xususiyatlar (Features)
+✨ Key Features
+🎨 User Interface
 
-### 🎨 Foydalanuvchi Interfeysi
-* **Dark Theme:** To'liq qora (#0A0A0A) va yashil (#22C55E) ranglar uyg'unligi.
-* **Responsive Design:** 1440px desktop formatidan tortib, barcha qurilmalarga moslashuvchan UI.
-* **Matrix Effect:** Hero qismida maxsus animatsion fon.
+Dark Theme: Full black (#0A0A0A) with green (#22C55E) accents.
 
-### 📚 O'quv Imkoniyatlari
-* **Video Kurslar:** Har bir dars uchun YouTube integratsiyasi.
-* **Online Compiler:** Brauzerni o'zida kod yozish va natijani ko'rish imkoniyati (JS, Python, HTML/CSS).
-* **Learning Paths:** Web va Dasturlash yo'nalishlari uchun bosqichma-bosqich yo'l xaritalari.
-* **Student Dashboard:** Kurs progressini kuzatish va sertifikatlarni boshqarish.
+Responsive Design: Works on desktop (1440px) down to mobile devices.
 
-### 🛡 Admin Panel
-* Kurslar va mavzularni boshqarish (CRUD).
-* Foydalanuvchilar statistikasi va platforma tahlili.
+Matrix Effect: Animated hero background for a dynamic look.
 
----
+📚 Learning Capabilities
 
-## 🏗 Loyiha Strukturasi
+Video Courses: Integrated with YouTube for each lesson.
 
-```text
+Online Compiler: Run code directly in the browser (JS, Python, HTML/CSS).
+
+Learning Paths: Step-by-step roadmaps for Web and Programming tracks.
+
+Student Dashboard: Track course progress and manage certificates.
+
+🛡 Admin Panel
+
+CRUD operations for courses and topics.
+
+View user statistics and platform analytics.
+
+🏗 Project Structure
 src/
-├── assets/          # Rasmlar va shriftlar
-├── components/      # UI komponentlar (Navbar, Footer, Card, Button)
-├── context/         # Global holat boshqaruvi (Auth, Progress)
-├── layouts/         # Sahifa qoliplari (AdminLayout, StudentLayout)
-├── pages/           # Sahifalar (Home, Courses, Lesson, Login)
-├── styles/          # Tailwind va global CSS
-└── utils/           # Yordamchi funksiyalar va doimiy o'zgaruvchilar
+├── assets/          # Images and fonts
+├── components/      # UI components (Navbar, Footer, Card, Button)
+├── context/         # Global state management (Auth, Progress)
+├── layouts/         # Page layouts (AdminLayout, StudentLayout)
+├── pages/           # Pages (Home, Courses, Lesson, Login)
+├── styles/          # Tailwind and global CSS
+└── utils/           # Helper functions and constants
+⚡ Getting Started
+
+Clone the repository:
+
+git clone https://github.com/nuriddinmahmud/InnoHUBFergana.git
+
+Install dependencies:
+
+cd InnoHUBFergana
+npm install
+
+Start the development server:
+
+npm run dev
+
+Open your browser at http://localhost:5173 (default Vite port).
+
+📂 Contribution
+
+Contributions are welcome! Please fork the repository and create a pull request for any improvements or bug fixes.
+
+📝 License
+
+This project is licensed under the MIT License
+.
