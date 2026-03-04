@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 210 40% 98%;
+
+    --card: 0 0% 6.7%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 0 0% 6.7%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 4%;
+
+    --secondary: 0 0% 8.6%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 0 0% 8.6%;
+    --muted-foreground: 215 16% 62%;
+
+    --accent: 142 71% 45%;
+    --accent-foreground: 0 0% 4%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 215 26% 17%;
+    --input: 215 26% 17%;
+    --ring: 142 71% 45%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 6.7%;
+    --sidebar-foreground: 215 16% 62%;
+    --sidebar-primary: 142 71% 45%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 0 0% 8.6%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 215 26% 17%;
+    --sidebar-ring: 142 71% 45%;
+
+    /* Custom tokens */
+    --surface-tertiary: 0 0% 8.6%;
+    --green-glow: 142 71% 45%;
+    --green-dark: 142 72% 37%;
+    --code-green: 142 71% 45%;
+    --text-secondary: 215 16% 62%;
+    --text-muted: 215 5% 33%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1 {
+    @apply text-5xl font-bold text-foreground;
+  }
+
+  h2 {
+    @apply text-4xl font-semibold text-foreground;
+  }
+
+  h3 {
+    @apply text-2xl font-semibold text-foreground;
+  }
+}
+
+@layer utilities {
+  .font-code {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .text-gradient-green {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-emerald-400;
+  }
+
+  .glow-green {
+    text-shadow: 0 0 20px hsl(142 71% 45% / 0.4);
+  }
+
+  .glow-green-sm {
+    text-shadow: 0 0 10px hsl(142 71% 45% / 0.3);
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:border-primary/60 hover:shadow-[0_0_20px_hsl(142_71%_45%/0.08)];
+  }
+
+  .matrix-bg {
+    background-image: radial-gradient(ellipse at 50% 50%, hsl(142 71% 45% / 0.06) 0%, transparent 70%);
+  }
+
+  .section-label {
+    @apply text-xs font-semibold tracking-[3px] uppercase text-primary;
+  }
+}
