@@ -16,7 +16,7 @@ const Footer = () => {
             </p>
             <div className="flex gap-3">
               <a href="https://t.me/IT_Shaharcha_Yaypan" className="text-muted-foreground hover:text-primary transition-colors text-sm">Telegram</a>
-              <a href="" className="text-muted-foreground hover:text-primary transition-colors text-sm">Instagram</a>
+              <a href="https://www.instagram.com/it_shaharcha_yaypan?utm_source=qr&igsh=cWthM2x1ZTlyYXVu" className="text-muted-foreground hover:text-primary transition-colors text-sm">Instagram</a>
             </div>
           </div>
 

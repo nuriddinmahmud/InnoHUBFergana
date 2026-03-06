@@ -14,7 +14,9 @@ const AboutSection = () => {
               O'zbek dasturchilarining yangi uyiga xush kelibsiz
             </h2>
             <p className="text-muted-foreground text-base leading-relaxed mb-8">
-              Inno HUB — O'zbekistondagi dasturlashni o'rganmoqchi bo'lgan har bir shaxs uchun yaratilgan bepul platforma. Bizning maqsadimiz — sifatli IT ta'limni hamma uchun ochiq qilish.
+              Inno HUB — O'zbekistondagi dasturlashni o'rganmoqchi bo'lgan har
+              bir shaxs uchun yaratilgan bepul platforma. Bizning maqsadimiz —
+              sifatli IT ta'limni hamma uchun ochiq qilish.
             </p>
             <Button asChild>
               <Link to="/courses">Kurslarni ko'rish →</Link>
@@ -25,9 +27,18 @@ const AboutSection = () => {
           <div className="relative h-[400px] rounded-2xl bg-card border border-border overflow-hidden flex items-center justify-center">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
             <div className="relative flex gap-4 items-center opacity-60">
-              <Code className="w-16 h-16 text-primary animate-float" style={{ animationDelay: "0s" }} />
-              <FileCode className="w-20 h-20 text-primary animate-float" style={{ animationDelay: "1s" }} />
-              <Braces className="w-16 h-16 text-primary animate-float" style={{ animationDelay: "2s" }} />
+              <Code
+                className="w-16 h-16 text-primary animate-float"
+                style={{ animationDelay: "0s" }}
+              />
+              <FileCode
+                className="w-20 h-20 text-primary animate-float"
+                style={{ animationDelay: "1s" }}
+              />
+              <Braces
+                className="w-16 h-16 text-primary animate-float"
+                style={{ animationDelay: "2s" }}
+              />
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-32 font-code text-primary/10 text-xs leading-5 overflow-hidden px-4">
               {`const app = express();\napp.get('/', (req, res) => {\n  res.json({ message: "Salom!" });\n});\nimport React from 'react';\nfunction App() {\n  return <h1>Inno HUB</h1>;\n}`}

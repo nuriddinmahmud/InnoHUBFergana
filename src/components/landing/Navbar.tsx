@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useTheme } from "next-themes";
 import { Link } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
+import { Moon, Sun } from "lucide-react";
 
 const Navbar = () => {
+  const { resolvedTheme, setTheme } = useTheme();
   const [user] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('user') || 'null');
@@ -61,6 +64,14 @@ const Navbar = () => {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+            className="h-9 w-9 rounded-lg border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            aria-label="Mavzuni almashtirish"
+          >
+            {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
           {user ? (
             <>
               <Link to="/dashboard" className="text-muted-foreground text-[15px] hover:text-foreground transition-colors">

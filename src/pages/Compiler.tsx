@@ -1,6 +1,11 @@
 import { useState } from "react";
 import Navbar from "@/components/landing/Navbar";
 import { Button } from "@/components/ui/button";
+import jsLogo from "@/images/logojs.png";
+import pyLogo from "@/images/pylogo.png";
+import htmlLogo from "@/images/html.png";
+import cssLogo from "@/images/css.png";
+import cppLogo from "@/images/c++.png";
 
 const languages = ["JavaScript", "Python", "HTML/CSS", "C++"];
 
@@ -76,7 +81,24 @@ const Compiler = () => {
               }`}
               title={`${lang} tilini tanlash`}
             >
-              {lang}
+              <span className="flex items-center gap-2">
+                {lang === "JavaScript" && (
+                  <img src={jsLogo} alt="JavaScript" className="w-5 h-5 rounded-sm" />
+                )}
+                {lang === "Python" && (
+                  <img src={pyLogo} alt="Python" className="w-5 h-5 rounded-sm" />
+                )}
+                {lang === "HTML/CSS" && (
+                  <span className="flex items-center gap-1">
+                    <img src={htmlLogo} alt="HTML" className="w-4 h-4 rounded-sm" />
+                    <img src={cssLogo} alt="CSS" className="w-4 h-4 rounded-sm" />
+                  </span>
+                )}
+                {lang === "C++" && (
+                  <img src={cppLogo} alt="C++" className="w-5 h-5 rounded-sm" />
+                )}
+                <span>{lang}</span>
+              </span>
             </button>
           ))}
         </div>
