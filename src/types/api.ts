@@ -40,3 +40,8 @@ export interface EnrolledCourse extends Course {
   done: number;
   total: number;
 }
+
+export interface CompilerResponse {
+    output: string;
+    error: string;
+}
