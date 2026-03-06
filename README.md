@@ -1,51 +1,51 @@
-# 🚀 Inno HUB — O‘zbek Tilidagi Dasturlash Ta’lim Platformasi
+# 🚀 Inno HUB — Uzbek-Language Programming Education Platform
 
-**Inno HUB** — bu o‘zbek tilida sifatli IT ta’limini ommalashtirish maqsadida yaratilgan zamonaviy ta’lim platformasi. Platforma foydalanuvchilarga video darsliklar, interaktiv kod tahrirlovchisi va shaxsiy o‘quv yo‘nalishlarini taklif etadi.
+![License](https://img.shields.io/badge/license-MIT-blue)
+![React](https://img.shields.io/badge/React-19-blue)
+![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-v3-green)
 
-
-
----
-
-## 🛠 Texnologik Stack
-
-Loyiha eng so'nggi va samarali texnologiyalar asosida qurilgan:
-
-* **Frontend:** React 19 (Vite)
-* **Styling:** Tailwind CSS (Custom Dark Theme)
-* **Animations:** Framer Motion
-* **Icons:** Lucide-React
-* **Fonts:** Inter (UI), JetBrains Mono (Code)
-* **Routing:** React Router DOM v7
+**Inno HUB** is a modern educational platform designed to provide high-quality IT education in the Uzbek language. The platform offers video tutorials, an interactive code editor, and personalized learning paths for learners interested in web development and programming.
 
 ---
 
-## ✨ Asosiy Xususiyatlar (Features)
+## 🛠 Technology Stack
 
-### 🎨 Foydalanuvchi Interfeysi
-* **Dark Theme:** To'liq qora (#0A0A0A) va yashil (#22C55E) ranglar uyg'unligi.
-* **Responsive Design:** 1440px desktop formatidan tortib, barcha qurilmalarga moslashuvchan UI.
-* **Matrix Effect:** Hero qismida maxsus animatsion fon.
+- **Frontend:** React 19 (Vite)
+- **Styling:** Tailwind CSS (Custom Dark Theme)
+- **Animations:** Framer Motion
+- **Icons:** Lucide-React
+- **Fonts:** Inter (UI), JetBrains Mono (Code)
+- **Routing:** React Router DOM v7
 
-### 📚 O'quv Imkoniyatlari
-* **Video Kurslar:** Har bir dars uchun YouTube integratsiyasi.
-* **Online Compiler:** Brauzerni o'zida kod yozish va natijani ko'rish imkoniyati (JS, Python, HTML/CSS).
-* **Learning Paths:** Web va Dasturlash yo'nalishlari uchun bosqichma-bosqich yo'l xaritalari.
-* **Student Dashboard:** Kurs progressini kuzatish va sertifikatlarni boshqarish.
+---
+
+## ✨ Key Features
+
+### 🎨 User Interface
+- **Dark Theme:** Full black (#0A0A0A) with green (#22C55E) accents
+- **Responsive Design:** Works on desktop (1440px) down to mobile devices
+- **Matrix Effect:** Animated hero background for a dynamic look
+
+### 📚 Learning Capabilities
+- **Video Courses:** Integrated with YouTube for each lesson
+- **Online Compiler:** Run code directly in the browser (JS, Python, HTML/CSS)
+- **Learning Paths:** Step-by-step roadmaps for Web and Programming tracks
+- **Student Dashboard:** Track course progress and manage certificates
 
 ### 🛡 Admin Panel
-* Kurslar va mavzularni boshqarish (CRUD).
-* Foydalanuvchilar statistikasi va platforma tahlili.
+- CRUD operations for courses and topics
+- View user statistics and platform analytics
 
 ---
 
-## 🏗 Loyiha Strukturasi
+## 🏗 Project Structure
 
 ```text
 src/
-├── assets/          # Rasmlar va shriftlar
-├── components/      # UI komponentlar (Navbar, Footer, Card, Button)
-├── context/         # Global holat boshqaruvi (Auth, Progress)
-├── layouts/         # Sahifa qoliplari (AdminLayout, StudentLayout)
-├── pages/           # Sahifalar (Home, Courses, Lesson, Login)
-├── styles/          # Tailwind va global CSS
-└── utils/           # Yordamchi funksiyalar va doimiy o'zgaruvchilar
+├── assets/          # Images and fonts
+├── components/      # UI components (Navbar, Footer, Card, Button)
+├── context/         # Global state management (Auth, Progress)
+├── layouts/         # Page layouts (AdminLayout, StudentLayout)
+├── pages/           # Pages (Home, Courses, Lesson, Login)
+├── styles/          # Tailwind and global CSS
+└── utils/           # Helper functions and constants
