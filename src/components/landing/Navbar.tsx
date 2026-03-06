@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
+import { ModeToggle } from "@/components/ModeToggle";
 
 const Navbar = () => {
   const [user] = useState(() => {
@@ -61,6 +62,7 @@ const Navbar = () => {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
+          <ModeToggle />
           {user ? (
             <>
               <Link to="/dashboard" className="text-muted-foreground text-[15px] hover:text-foreground transition-colors">
