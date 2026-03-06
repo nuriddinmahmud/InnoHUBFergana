@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import Navbar from "@/components/landing/Navbar";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Check, Circle, Copy } from "lucide-react";
 
@@ -12,16 +13,60 @@ const topics = [
   { name: "Ob'ektlar", done: false },
 ];
 
+const codeExample = `let mevalar = ["olma", "nok", "banan"];
+
+// Birinchi elementni chiqaramiz
+console.log(mevalar[0]); // "olma"
+
+// Yangi meva qo'shamiz
+mevalar.push("anor");
+
+// Umumiy uzunlikni chiqaramiz
+console.log(mevalar.length); // 4
+
+// Barcha mevalarni konsolga chiqaramiz
+for (let i = 0; i < mevalar.length; i++) {
+  console.log(mevalar[i]);
+}`;
+
 const Lesson = () => {
   const [copied, setCopied] = useState(false);
+  const [exampleCode, setExampleCode] = useState(codeExample);
+  const [exampleOutput, setExampleOutput] = useState("> olma\n> 4\n> olma\n> nok\n> banan\n> anor");
   const [currentTopic, setCurrentTopic] = useState(3); // Massivlar
   const [completionStatus, setCompletionStatus] = useState<Record<number, boolean>>(
     { 0: true, 1: true, 2: true, 3: false, 4: false, 5: false }
   );
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
+    if ("clipboard" in navigator) {
+      await navigator.clipboard.writeText(codeExample).catch(() => undefined);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const runExample = () => {
+    const logs: string[] = [];
+    const customLog = (...args: unknown[]) => {
+      logs.push(
+        args
+          .map((arg) => (typeof arg === "object" ? JSON.stringify(arg) : String(arg)))
+          .join(" "),
+      );
+    };
+
+    try {
+      const fn = new Function("customLog", exampleCode.replace(/console\.log/g, "customLog"));
+      fn(customLog);
+      setExampleOutput(logs.length ? logs.map((line) => `> ${line}`).join("\n") : "> Natija: OK");
+    } catch (error) {
+      setExampleOutput(
+        `❌ Xato: ${
+          error instanceof Error ? error.message : typeof error === "string" ? error : String(error)
+        }`,
+      );
+    }
   };
 
   const markAsComplete = () => {
@@ -45,7 +90,9 @@ const Lesson = () => {
   const progress = Math.round((completedCount / topics.length) * 100);
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex flex-col">
+      <Navbar />
+      <div className="flex flex-1">
       {/* Sidebar */}
       <aside className="w-[280px] bg-card border-r border-border flex flex-col shrink-0">
         <div className="p-5 border-b border-border">
@@ -87,7 +134,8 @@ const Lesson = () => {
           {/* Breadcrumb */}
           <p className="text-muted-foreground text-[13px] mb-6">
             <Link to="/courses" className="hover:text-primary">Kurslar</Link> &gt;{" "}
-            <Link to="/lesson" className="hover:text-primary">JavaScript</Link> &gt; Massivlar
+            <Link to="/dashboard" className="hover:text-primary">JavaScript</Link> &gt;{" "}
+            {topics[currentTopic].name}
           </p>
 
           <h1 className="text-4xl font-bold mb-2">{topics[currentTopic].name}</h1>
@@ -123,10 +171,7 @@ const Lesson = () => {
               </button>
             </div>
             <pre className="p-4 font-code text-sm leading-7 overflow-x-auto">
-              <code>
-                <span className="text-purple-400">let</span> <span className="text-foreground">mevalar</span> <span className="text-foreground">=</span> <span className="text-foreground">[</span><span className="text-primary">"olma"</span><span className="text-foreground">,</span> <span className="text-primary">"nok"</span><span className="text-foreground">,</span> <span className="text-primary">"banan"</span><span className="text-foreground">];</span>{"\n"}
-                <span className="text-purple-400">console</span><span className="text-foreground">.</span><span className="text-yellow-400">log</span><span className="text-foreground">(</span><span className="text-foreground">mevalar[</span><span className="text-orange-400">0</span><span className="text-foreground">]);</span> <span className="text-muted-foreground/50">// "olma"</span>
-              </code>
+              <code>{codeExample}</code>
             </pre>
           </div>
 
@@ -137,14 +182,22 @@ const Lesson = () => {
               <div className="grid grid-cols-2">
                 <div className="bg-background p-4 border-r border-border">
                   <textarea
+                    value={exampleCode}
+                    onChange={(e) => setExampleCode(e.target.value)}
                     className="w-full h-32 bg-transparent font-code text-sm text-foreground resize-none focus:outline-none placeholder:text-muted-foreground/40"
                     placeholder="// Kod yozing..."
-                    defaultValue={'let mevalar = ["olma", "nok"];\nconsole.log(mevalar.length);'}
                   />
                 </div>
                 <div className="bg-background p-4">
-                  <p className="text-muted-foreground text-xs mb-2">Natija</p>
-                  <p className="font-code text-sm text-primary">&gt; 2</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-muted-foreground text-xs">Natija</p>
+                    <Button size="sm" variant="outline" className="h-7 px-3 text-xs" onClick={runExample}>
+                      Ishga tushirish
+                    </Button>
+                  </div>
+                  <pre className="font-code text-sm text-primary whitespace-pre-wrap">
+                    {exampleOutput}
+                  </pre>
                 </div>
               </div>
             </div>
@@ -202,6 +255,7 @@ const Lesson = () => {
           <p className="text-muted-foreground text-sm">{completedCount}/{topics.length} mavzu</p>
         </div>
       </aside>
+      </div>
     </div>
   );
 };
