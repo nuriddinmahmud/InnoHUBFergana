@@ -2,6 +2,10 @@ import { Link } from "react-router-dom";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 import { useCourses } from "@/hooks/useCourses";
+import htmlLogo from "@/images/html.png";
+import cssLogo from "@/images/css.png";
+import jsLogo from "@/images/logojs.png";
+import tsLogo from "@/images/tslogo.png";
 
 const Courses = () => {
   const { data: courses = [], isLoading } = useCourses();
@@ -34,8 +38,22 @@ const Courses = () => {
                 key={course.id}
                 className="bg-card border border-border rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-8"
               >
-                <div className="text-5xl mb-6 inline-block p-4 bg-muted rounded-lg">
-                  {course.icon}
+                <div className="mb-6 inline-flex items-center justify-center p-4 bg-muted rounded-lg">
+                  {course.title === "Web Development" && (
+                    <span className="flex items-center gap-2">
+                      <img src={htmlLogo} alt="HTML" className="w-7 h-7 rounded" />
+                      <img src={cssLogo} alt="CSS" className="w-7 h-7 rounded" />
+                    </span>
+                  )}
+                  {course.title === "React Fundamentals" && (
+                    <img src={jsLogo} alt="React" className="w-9 h-9 rounded" />
+                  )}
+                  {course.title === "Advanced TypeScript" && (
+                    <img src={tsLogo} alt="TypeScript" className="w-9 h-9 rounded" />
+                  )}
+                  {!["Web Development", "React Fundamentals", "Advanced TypeScript"].includes(
+                    course.title,
+                  ) && <span className="text-3xl">{course.icon}</span>}
                 </div>
                 <h3 className="text-2xl font-bold text-foreground mb-3">
                   {course.title}
