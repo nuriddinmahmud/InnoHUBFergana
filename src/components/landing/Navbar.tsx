@@ -1,29 +1,24 @@
-import { useState } from "react";
 import { useTheme } from "next-themes";
 import { Link } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { Moon, Sun } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const Navbar = () => {
   const { resolvedTheme, setTheme } = useTheme();
-  const [user] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
-    } catch {
-      return null;
-    }
-  });
+  const auth = useAuth();
+  const { user } = auth;
 
-  const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = '/';
+  const handleLogout = async () => {
+    await auth.logout();
   };
 
   const navLinks = [
     { label: "Bosh sahifa", href: "/" },
     { label: "Kurslar", href: "/courses" },
+    ...(user ? [{ label: "Dashboard", href: "/dashboard" }] : []),
     { label: "Kompilyator", href: "/compiler" },
     { label: "Biz haqimizda", href: "/#about" },
   ];
@@ -39,8 +34,6 @@ const Navbar = () => {
         {/* Center nav */}
         <div className="hidden md:flex items-center gap-8">
           {navLinks.map((link) =>
-            // Render hash links (e.g. "/#about") as plain Links so they
-            // don't become "active" based only on pathname matching.
             link.href.includes("#") ? (
               <Link
                 key={link.label}
@@ -74,11 +67,25 @@ const Navbar = () => {
           </button>
           {user ? (
             <>
-              <Link to="/dashboard" className="text-muted-foreground text-[15px] hover:text-foreground transition-colors">
-                👤 {user.name}
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-2 text-muted-foreground text-[15px] hover:text-foreground transition-colors"
+              >
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="h-8 w-8 rounded-full border border-border object-cover"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full border border-border bg-card flex items-center justify-center text-xs">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span>{user.name}</span>
               </Link>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={handleLogout}
                 title="Tizimdan chiqish"

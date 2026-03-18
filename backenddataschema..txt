@@ -1,0 +1,692 @@
+INNOHUB BACKEND DATA SCHEMA
+Generated from current frontend behavior and admin panel requirements
+Date: 2026-03-18
+
+==================================================
+1. PURPOSE
+==================================================
+
+This file describes the backend database structure that matches the current INNOHUB frontend.
+
+Current frontend features covered by this schema:
+- Firebase Google authentication
+- User profile storage
+- Public courses list
+- Course detail + lessons
+- Lesson progress tracking
+- Admin panel:
+  - Dashboard
+  - Courses CRUD
+  - Topics CRUD
+  - Users management
+  - Statistics
+
+Important note:
+- The frontend currently uses static data and localStorage for several features.
+- This schema describes how those same features should be stored in a real backend database.
+
+
+==================================================
+2. MAIN ENTITIES
+==================================================
+
+Core entities:
+1. users
+2. auth_accounts
+3. courses
+4. topics
+5. enrollments
+6. lesson_progress
+7. admin_activity_logs
+
+Optional supporting entities:
+8. course_assets
+9. user_sessions
+10. daily_user_stats
+11. course_statistics
+
+
+==================================================
+3. USERS TABLE
+==================================================
+
+Table: users
+
+Purpose:
+- Stores the main user record used across dashboard, navbar, admin panel, and future profile pages.
+
+Fields:
+- id: uuid or varchar primary key
+- firebase_uid: varchar unique not null
+- email: varchar unique not null
+- full_name: varchar not null
+- avatar_url: text null
+- role: enum('student', 'admin', 'super_admin') default 'student'
+- status: enum('active', 'blocked', 'pending') default 'active'
+- provider: enum('google', 'email') default 'google'
+- created_at: timestamp not null
+- updated_at: timestamp not null
+- last_login_at: timestamp null
+
+Frontend mapping:
+- AuthContext stores:
+  - id
+  - email
+  - name
+  - avatar / photoURL
+  - token
+- AdminUsers page expects:
+  - avatar
+  - name
+  - email
+  - joined date
+  - status
+
+Recommended indexes:
+- unique(firebase_uid)
+- unique(email)
+- index(role)
+- index(status)
+- index(created_at)
+
+
+==================================================
+4. AUTH ACCOUNTS TABLE
+==================================================
+
+Table: auth_accounts
+
+Purpose:
+- Separates login provider data from the main user row.
+- Useful if later one user can connect Google + email/password.
+
+Fields:
+- id: uuid primary key
+- user_id: fk -> users.id
+- provider: enum('google', 'email')
+- provider_user_id: varchar not null
+- email: varchar null
+- access_token: text null
+- refresh_token: text null
+- token_expires_at: timestamp null
+- created_at: timestamp not null
+- updated_at: timestamp not null
+
+Notes:
+- For Firebase Google login, provider_user_id should usually be firebase_uid.
+- If backend verifies Firebase ID token, access_token may be optional to store.
+
+
+==================================================
+5. COURSES TABLE
+==================================================
+
+Table: courses
+
+Purpose:
+- Stores all courses shown on `/courses`, `/dashboard`, `/course/:courseId`, and admin course management.
+
+Fields:
+- id: varchar primary key
+  Examples:
+  - html
+  - css
+  - javascript
+- slug: varchar unique not null
+- title: varchar not null
+  Current frontend titles:
+  - HTML Fundamentals
+  - CSS Fundamentals
+  - JavaScript Fundamentals
+- description: text not null
+- icon: varchar null
+  Example values currently used in frontend:
+  - emoji or short label
+- image_url: text null
+- gradient_from: varchar null
+  Example: from-orange-500
+- gradient_to: varchar null
+  Example: to-red-500
+- level: enum('Boshlang''ich', 'O''rta', 'Yuqori') not null
+- duration_label: varchar not null
+  Example:
+  - 6 soat
+  - 7 soat
+  - 12 soat
+- total_lessons: int not null default 0
+- status: enum('draft', 'published') default 'draft'
+- sort_order: int default 0
+- created_by: fk -> users.id null
+- created_at: timestamp not null
+- updated_at: timestamp not null
+
+Frontend mapping:
+- AdminCourses page expects:
+  - image
+  - title
+  - description
+  - level
+  - duration
+  - status
+  - topicCount
+- Dashboard/Courses pages expect:
+  - title
+  - description
+  - image/icon
+  - level
+  - totalLessons
+  - duration
+
+Recommended indexes:
+- unique(slug)
+- index(status)
+- index(level)
+- index(sort_order)
+
+
+==================================================
+6. TOPICS TABLE
+==================================================
+
+Table: topics
+
+Purpose:
+- Stores all lessons/topics inside a course.
+- One course has many topics.
+
+Fields:
+- id: uuid primary key
+- course_id: fk -> courses.id not null
+- lesson_number: int not null
+  Current frontend uses numeric lesson ids 1..35
+- title: varchar not null
+- video_id: varchar not null
+  Current YouTube placeholder: dQw4w9WgXcQ
+- duration_label: varchar not null
+  Example:
+  - 8:24
+  - 10:15
+- content_markdown: longtext null
+- content_html: longtext null
+  Optional pre-rendered cache if needed
+- is_preview: boolean default false
+- status: enum('draft', 'published') default 'published'
+- created_at: timestamp not null
+- updated_at: timestamp not null
+
+Constraints:
+- unique(course_id, lesson_number)
+
+Frontend mapping:
+- CoursePage needs:
+  - course_id
+  - lesson_number
+  - title
+  - video_id
+  - duration_label
+  - optional content/description
+- AdminTopics page expects:
+  - course
+  - order number
+  - title
+  - YouTube ID
+  - duration
+  - markdown content
+
+Recommended indexes:
+- unique(course_id, lesson_number)
+- index(course_id)
+- index(status)
+
+
+==================================================
+7. ENROLLMENTS TABLE
+==================================================
+
+Table: enrollments
+
+Purpose:
+- Tracks which users started or enrolled in which course.
+- Required for "Mening kurslarim", dashboard stats, and admin statistics.
+
+Fields:
+- id: uuid primary key
+- user_id: fk -> users.id not null
+- course_id: fk -> courses.id not null
+- enrolled_at: timestamp not null
+- last_topic_id: fk -> topics.id null
+- completed_topics_count: int not null default 0
+- progress_percent: decimal(5,2) not null default 0
+- status: enum('active', 'completed', 'paused') default 'active'
+- completed_at: timestamp null
+- updated_at: timestamp not null
+
+Constraints:
+- unique(user_id, course_id)
+
+Frontend mapping:
+- Dashboard sidebar expects:
+  - user's courses
+  - completed lesson count
+  - total lesson count
+  - continue button target
+
+Recommended indexes:
+- unique(user_id, course_id)
+- index(user_id)
+- index(course_id)
+- index(status)
+
+
+==================================================
+8. LESSON PROGRESS TABLE
+==================================================
+
+Table: lesson_progress
+
+Purpose:
+- Replaces current localStorage progress:
+  key format now in frontend: innohub_progress_{courseId}
+  structure now in frontend:
+  {
+    completedLessons: number[],
+    lastLessonId: number
+  }
+
+Recommended backend row-per-lesson model:
+
+Fields:
+- id: uuid primary key
+- user_id: fk -> users.id not null
+- course_id: fk -> courses.id not null
+- topic_id: fk -> topics.id not null
+- is_completed: boolean not null default false
+- completed_at: timestamp null
+- last_viewed_at: timestamp null
+- watch_seconds: int default 0
+- created_at: timestamp not null
+- updated_at: timestamp not null
+
+Constraints:
+- unique(user_id, topic_id)
+
+Why this structure is better:
+- Easier analytics
+- Easier progress calculation
+- Supports resume from last lesson
+- Supports partial watch time later
+
+How to derive current frontend values:
+- completedLessons:
+  SELECT topic.lesson_number WHERE is_completed = true
+- lastLessonId:
+  latest viewed topic.lesson_number for that user/course
+- progressPercent:
+  completed topics / total topics * 100
+
+Recommended indexes:
+- unique(user_id, topic_id)
+- index(user_id, course_id)
+- index(course_id)
+
+
+==================================================
+9. ADMIN ACTIVITY LOGS TABLE
+==================================================
+
+Table: admin_activity_logs
+
+Purpose:
+- Optional but highly recommended.
+- Records admin actions from Courses, Topics, and Users pages.
+
+Fields:
+- id: uuid primary key
+- admin_user_id: fk -> users.id not null
+- action_type: varchar not null
+  Examples:
+  - course_created
+  - course_updated
+  - course_deleted
+  - topic_created
+  - topic_updated
+  - topic_deleted
+  - user_blocked
+  - user_activated
+  - user_deleted
+- entity_type: varchar not null
+  Example:
+  - course
+  - topic
+  - user
+- entity_id: varchar not null
+- metadata_json: json null
+- created_at: timestamp not null
+
+
+==================================================
+10. OPTIONAL COURSE ASSETS TABLE
+==================================================
+
+Table: course_assets
+
+Purpose:
+- If images are uploaded to backend or object storage.
+- Useful instead of storing large base64 strings directly in the courses table.
+
+Fields:
+- id: uuid primary key
+- course_id: fk -> courses.id not null
+- asset_type: enum('cover', 'thumbnail', 'banner')
+- file_url: text not null
+- file_name: varchar null
+- mime_type: varchar null
+- created_at: timestamp not null
+
+
+==================================================
+11. OPTIONAL USER SESSIONS TABLE
+==================================================
+
+Table: user_sessions
+
+Purpose:
+- If backend manages sessions or device tracking.
+
+Fields:
+- id: uuid primary key
+- user_id: fk -> users.id not null
+- provider: varchar not null
+- token_hash: text null
+- ip_address: varchar null
+- user_agent: text null
+- last_seen_at: timestamp not null
+- created_at: timestamp not null
+
+
+==================================================
+12. OPTIONAL DAILY USER STATS TABLE
+==================================================
+
+Table: daily_user_stats
+
+Purpose:
+- Pre-aggregated admin statistics for the last 7 days chart.
+- Can also be calculated dynamically, but materialized stats are faster.
+
+Fields:
+- stat_date: date primary key
+- new_users_count: int not null default 0
+- active_users_count: int not null default 0
+- total_users_count: int not null default 0
+
+Frontend chart currently expects values similar to:
+- 12
+- 19
+- 8
+- 25
+- 14
+- 30
+- 22
+
+
+==================================================
+13. OPTIONAL COURSE STATISTICS TABLE
+==================================================
+
+Table: course_statistics
+
+Purpose:
+- Pre-aggregated statistics for admin charts/cards.
+
+Fields:
+- course_id: fk -> courses.id primary key
+- started_users_count: int not null default 0
+- completed_users_count: int not null default 0
+- average_completion_percent: decimal(5,2) not null default 0
+- updated_at: timestamp not null
+
+Frontend statistics page currently expects values like:
+- HTML -> 45%
+- CSS -> 30%
+- JS -> 20%
+
+
+==================================================
+14. RELATIONSHIPS
+==================================================
+
+users 1---many auth_accounts
+users 1---many enrollments
+users 1---many lesson_progress
+users 1---many admin_activity_logs
+
+courses 1---many topics
+courses 1---many enrollments
+courses 1---many lesson_progress
+courses 1---many course_assets
+courses 1---1 course_statistics
+
+topics many---1 courses
+lesson_progress many---1 topics
+
+
+==================================================
+15. MINIMUM BACKEND API CONTRACT
+==================================================
+
+These are the minimum endpoints the current frontend would benefit from after moving off static/local data.
+
+Auth:
+- POST /auth/firebase
+  Verify Firebase token and create/update user
+- GET /auth/me
+  Return current user profile
+- POST /auth/logout
+
+Courses:
+- GET /courses
+  Return published courses with total_lessons and basic meta
+- GET /courses/:courseId
+  Return one course with lessons/topics
+- POST /admin/courses
+- PUT /admin/courses/:courseId
+- DELETE /admin/courses/:courseId
+
+Topics:
+- GET /admin/topics?courseId=
+- POST /admin/topics
+- PUT /admin/topics/:topicId
+- DELETE /admin/topics/:topicId
+
+Progress:
+- GET /me/courses
+  Return enrolled courses + progress summary
+- GET /me/courses/:courseId/progress
+- POST /me/courses/:courseId/enroll
+- POST /me/courses/:courseId/topics/:topicId/complete
+- DELETE /me/courses/:courseId/topics/:topicId/complete
+- POST /me/courses/:courseId/last-viewed
+
+Users/Admin:
+- GET /admin/users
+- PATCH /admin/users/:userId/status
+- DELETE /admin/users/:userId
+
+Statistics:
+- GET /admin/statistics/overview
+- GET /admin/statistics/users
+- GET /admin/statistics/courses
+
+
+==================================================
+16. EXAMPLE SQL-STYLE TABLE DEFINITIONS
+==================================================
+
+users
+- id PK
+- firebase_uid UNIQUE
+- email UNIQUE
+- full_name
+- avatar_url
+- role
+- status
+- provider
+- created_at
+- updated_at
+- last_login_at
+
+courses
+- id PK
+- slug UNIQUE
+- title
+- description
+- icon
+- image_url
+- gradient_from
+- gradient_to
+- level
+- duration_label
+- total_lessons
+- status
+- sort_order
+- created_by FK users.id
+- created_at
+- updated_at
+
+topics
+- id PK
+- course_id FK courses.id
+- lesson_number
+- title
+- video_id
+- duration_label
+- content_markdown
+- content_html
+- is_preview
+- status
+- created_at
+- updated_at
+
+enrollments
+- id PK
+- user_id FK users.id
+- course_id FK courses.id
+- enrolled_at
+- last_topic_id FK topics.id
+- completed_topics_count
+- progress_percent
+- status
+- completed_at
+- updated_at
+
+lesson_progress
+- id PK
+- user_id FK users.id
+- course_id FK courses.id
+- topic_id FK topics.id
+- is_completed
+- completed_at
+- last_viewed_at
+- watch_seconds
+- created_at
+- updated_at
+
+
+==================================================
+17. FRONTEND DATA THAT SHOULD BECOME REAL DB DATA
+==================================================
+
+Currently hardcoded/static in frontend:
+- 3 courses
+- 35 lessons per course
+- durations
+- video IDs
+- course status in admin
+- users list in admin
+- chart values in admin statistics
+
+Should move to backend:
+- all courses
+- all topics
+- all user records
+- all progress/enrollment data
+- all dashboard/admin statistics
+- draft/published states
+- uploaded course images
+
+
+==================================================
+18. RECOMMENDED IMPLEMENTATION ORDER
+==================================================
+
+Phase 1:
+- users
+- courses
+- topics
+- enrollments
+- lesson_progress
+
+Phase 2:
+- admin CRUD endpoints
+- statistics endpoints
+- image upload handling
+
+Phase 3:
+- activity logs
+- cached aggregate statistics
+- richer session tracking
+
+
+==================================================
+19. IMPORTANT FRONTEND COMPATIBILITY NOTES
+==================================================
+
+1. Course IDs are string-based right now.
+   Keep stable IDs such as:
+   - html
+   - css
+   - javascript
+
+2. Current frontend expects lesson ordering by integer sequence.
+   Keep lesson_number numeric and unique per course.
+
+3. Current frontend stores Google user as:
+   {
+     id,
+     email,
+     name,
+     avatar,
+     photoURL,
+     token
+   }
+   Backend response should map cleanly to this.
+
+4. Current frontend uses Uzbek for many labels but course titles are in English.
+   Keep course title fields in English.
+
+5. Current admin pages already assume:
+   - course has status
+   - topic belongs to one course
+   - user has status
+   - statistics can be grouped by date and by course
+
+
+==================================================
+20. FINAL RECOMMENDATION
+==================================================
+
+If you only build the minimum production-ready schema, build these tables first:
+- users
+- courses
+- topics
+- enrollments
+- lesson_progress
+
+If you want full admin + analytics support, also add:
+- admin_activity_logs
+- daily_user_stats
+- course_statistics
+- course_assets
+
+This schema is designed to match the current INNOHUB frontend as closely as possible while staying scalable for future backend integration.

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Camera, Lock, Download } from "lucide-react";
 
 const Profile = () => {
-  const [formData, setFormData] = useState({ firstName: "Sardor", lastName: "Karimov", email: "sardor@email.com" });
+  const [formData, setFormData] = useState({ firstName: "Ma'murjon", lastName: "Saidov", email: "mamurjon@email.com" });
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
@@ -27,8 +27,8 @@ const Profile = () => {
               <Camera className="w-4 h-4" />
             </button>
           </div>
-          <h2 className="text-[28px] font-bold">Sardor Karimov</h2>
-          <p className="text-muted-foreground text-[15px] mb-2">sardor@email.com</p>
+          <h2 className="text-[28px] font-bold">Ma'murjon Saidov</h2>
+          <p className="text-muted-foreground text-[15px] mb-2">mamurjon@email.com</p>
           <span className="inline-flex px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-medium">
             2025 yildan a'zo
           </span>

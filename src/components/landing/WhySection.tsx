@@ -29,7 +29,9 @@ const WhySection = () => {
       <div className="container max-w-[1440px] mx-auto px-8">
         <div className="text-center mb-14">
           <p className="section-label mb-3">NIMA UCHUN INNO HUB?</p>
-          <h2 className="text-[40px] font-bold">O'rganish uchun eng yaxshi joy</h2>
+          <h2 className="text-[40px] font-bold">
+            O'rganish uchun eng yaxshi joy
+          </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-[1360px] mx-auto">
@@ -42,7 +44,9 @@ const WhySection = () => {
                 <f.icon className="w-7 h-7 text-primary" />
               </div>
               <h3 className="text-xl font-semibold mb-3">{f.title}</h3>
-              <p className="text-muted-foreground text-[15px] leading-relaxed">{f.desc}</p>
+              <p className="text-muted-foreground text-[15px] leading-relaxed">
+                {f.desc}
+              </p>
             </div>
           ))}
         </div>

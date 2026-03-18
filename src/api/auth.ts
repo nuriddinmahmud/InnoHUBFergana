@@ -1,65 +1,64 @@
-import { api, isBackendEnabled } from "@/lib/api";
-import type { AuthResponse, LoginPayload, RegisterPayload } from "@/types/api";
+import { api } from "@/lib/api";
 
-/**
- * Login with email/password.
- * Uses backend when VITE_API_URL is set, otherwise mock.
- */
-export async function login(payload: LoginPayload): Promise<AuthResponse> {
-  if (isBackendEnabled) {
-    const res = await api.post<AuthResponse>("/auth/login", payload);
-    const userWithToken = {
-      ...res.user,
-      token: res.token,
-      name: res.user.name,
-    };
-    localStorage.setItem("user", JSON.stringify(userWithToken));
-    return res;
-  }
-
-  // Mock: simulate delay, return fake user
-  await new Promise((r) => setTimeout(r, 800));
-  const mockUser = {
-    id: "1",
-    email: payload.email,
-    name: "Sardor Karimov",
-    token: "mock-token",
-  };
-  localStorage.setItem("user", JSON.stringify(mockUser));
-  return {
-    user: { id: mockUser.id, email: mockUser.email, name: mockUser.name },
-    token: mockUser.token,
-  };
+// 1. Ma'lumotlar turlari (Types)
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  surname: string;
+  role: string;
 }
 
-/**
- * Register new user.
- * Uses backend when VITE_API_URL is set, otherwise mock.
- */
-export async function register(payload: RegisterPayload): Promise<AuthResponse> {
-  if (isBackendEnabled) {
-    const res = await api.post<AuthResponse>("/auth/register", payload);
-    const userWithToken = {
-      ...res.user,
-      token: res.token,
-      name: res.user.name,
-    };
-    localStorage.setItem("user", JSON.stringify(userWithToken));
-    return res;
-  }
-
-  // Mock
-  await new Promise((r) => setTimeout(r, 800));
-  const fullName = `${payload.firstName} ${payload.lastName}`;
-  const mockUser = {
-    id: "1",
-    email: payload.email,
-    name: fullName,
-    token: "mock-token",
-  };
-  localStorage.setItem("user", JSON.stringify(mockUser));
-  return {
-    user: { id: mockUser.id, email: mockUser.email, name: mockUser.name },
-    token: mockUser.token,
-  };
+export interface AuthResponse {
+  access_token: string;
+  user: User;
 }
+
+// Register uchun yuboriladigan ma'lumotlar turi
+export interface RegisterData {
+  name: string;
+  surname: string;
+  email: string;
+  password: string;
+}
+
+// Login uchun yuboriladigan ma'lumotlar turi
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+// 2. API Funksiyalari
+
+// Ro'yxatdan o'tish
+export const register = async (userData: RegisterData): Promise<AuthResponse> => {
+  const data = await api.post<AuthResponse>("/auth/register", userData);
+  
+  if (data.access_token) {
+    localStorage.setItem("user", JSON.stringify({ ...data.user, token: data.access_token }));
+  }
+  
+  return data;
+};
+
+// Tizimga kirish
+export const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  const data = await api.post<AuthResponse>("/auth/login", credentials);
+  
+  if (data.access_token) {
+    localStorage.setItem("user", JSON.stringify({ ...data.user, token: data.access_token }));
+  }
+  
+  return data;
+};
+
+// Profil ma'lumotlarini olish
+export const getProfile = async (): Promise<User> => {
+  return api.get<User>("/auth/profile");
+};
+
+// Tizimdan chiqish
+export const logout = (): void => {
+  localStorage.removeItem("user");
+  window.location.href = "/login";
+};

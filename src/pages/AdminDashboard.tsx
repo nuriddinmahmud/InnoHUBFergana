@@ -1,75 +1,144 @@
-import { useState } from "react";
+import { BookOpen, FileText, PlusCircle, Users } from "lucide-react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
-import { Users, BookOpen, FileText, UserPlus } from "lucide-react";
+
+const stats = [
+  { label: "Foydalanuvchilar", value: "1,248", icon: Users, note: "Faol o'quvchilar soni" },
+  { label: "Kurslar soni", value: "12", icon: BookOpen, note: "Nashrdagi kurslar" },
+  { label: "Mavzular soni", value: "148", icon: FileText, note: "Jami yuklangan mavzular" },
+  { label: "Bugun qo'shilganlar", value: "18", icon: PlusCircle, note: "So'nggi 24 soat" },
+];
+
+const recentUsers = [
+  { name: "Aziza Karimova", email: "aziza@innohub.uz", joinedAt: "18 Mart 2026", status: "Faol" },
+  { name: "Jamshid Ergashev", email: "jamshid@gmail.com", joinedAt: "18 Mart 2026", status: "Faol" },
+  { name: "Madinabonu Tursunova", email: "madina@mail.uz", joinedAt: "17 Mart 2026", status: "Tekshirilmoqda" },
+  { name: "Bekzod Haydarov", email: "bekzod@proton.me", joinedAt: "17 Mart 2026", status: "Faol" },
+  { name: "Sardor Meliyev", email: "sardor@icloud.com", joinedAt: "16 Mart 2026", status: "Faol" },
+  { name: "Nilufar Qodirova", email: "nilufar@mail.com", joinedAt: "16 Mart 2026", status: "Kutilmoqda" },
+];
+
+const courseStatuses = [
+  { name: "HTML Fundamentals", status: "Nashr etilgan", topicCount: 35 },
+  { name: "CSS Fundamentals", status: "Nashr etilgan", topicCount: 35 },
+  { name: "JavaScript Fundamentals", status: "Qoralama", topicCount: 35 },
+  { name: "Python Fundamentals", status: "Qoralama", topicCount: 18 },
+];
 
 const AdminDashboard = () => {
-  const [stats] = useState([
-    { icon: Users, value: "124", label: "Foydalanuvchilar" },
-    { icon: BookOpen, value: "7", label: "Kurslar" },
-    { icon: FileText, value: "89", label: "Mavzular" },
-    { icon: UserPlus, value: "12", label: "Bugun qo'shilganlar" },
-  ]);
-
-  const [recentUsers] = useState([
-    { name: "Sardor Karimov", email: "sardor@mail.com", date: "2025-03-01", status: "Faol" },
-    { name: "Nilufar Rahimova", email: "nilufar@mail.com", date: "2025-03-01", status: "Faol" },
-    { name: "Jasur Toshmatov", email: "jasur@mail.com", date: "2025-02-28", status: "Faol" },
-    { name: "Kamola Usmanova", email: "kamola@mail.com", date: "2025-02-28", status: "Faol" },
-  ]);
   return (
-    <div className="min-h-screen bg-background flex">
-      <AdminSidebar />
-      <main className="flex-1 p-8">
-        <h1 className="text-[28px] font-bold mb-8">Boshqaruv paneli</h1>
+    <div className="min-h-screen bg-[#0A0A0A] text-[#F8FAFC]">
+      <div className="flex min-h-screen">
+        <AdminSidebar />
 
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-5 mb-10">
-          {stats.map((stat) => (
-            <div key={stat.label} className="bg-card border border-border rounded-xl p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <stat.icon className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stat.value}</p>
-                  <p className="text-muted-foreground text-sm">{stat.label}</p>
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mb-8">
+            <p className="text-sm text-[#22C55E]">Admin Panel</p>
+            <h1 className="mt-2 text-3xl font-bold">Boshqaruv paneli</h1>
+            <p className="mt-2 text-sm text-[#94A3B8]">
+              Platformadagi foydalanuvchilar, kurslar va mavzular bo'yicha umumiy ko'rinish.
+            </p>
+          </div>
+
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-xl border border-[#1E293B] bg-[#111111] p-6 transition hover:border-[#22C55E]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-[#94A3B8]">{stat.label}</p>
+                    <p className="mt-3 text-3xl font-semibold">{stat.value}</p>
+                    <p className="mt-2 text-xs text-[#94A3B8]">{stat.note}</p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#22C55E]/10 text-[#22C55E]">
+                    <stat.icon className="h-6 w-6" />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </section>
 
-        {/* Table */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-border">
-            <h3 className="font-semibold">So'nggi foydalanuvchilar</h3>
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr className="bg-secondary text-primary text-sm">
-                <th className="text-left px-6 py-3 font-medium">Ism</th>
-                <th className="text-left px-6 py-3 font-medium">Email</th>
-                <th className="text-left px-6 py-3 font-medium">Qo'shilgan sana</th>
-                <th className="text-left px-6 py-3 font-medium">Holat</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentUsers.map((user, i) => (
-                <tr key={i} className={`border-t border-border ${i % 2 === 0 ? "" : "bg-secondary/30"}`}>
-                  <td className="px-6 py-3.5 text-sm">{user.name}</td>
-                  <td className="px-6 py-3.5 text-sm text-muted-foreground">{user.email}</td>
-                  <td className="px-6 py-3.5 text-sm text-muted-foreground">{user.date}</td>
-                  <td className="px-6 py-3.5">
-                    <span className="inline-flex px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                      {user.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </main>
+          <section className="mt-8 grid gap-6 xl:grid-cols-5">
+            <div className="overflow-hidden rounded-2xl border border-[#1E293B] bg-[#111111] xl:col-span-3">
+              <div className="border-b border-[#1E293B] px-6 py-5">
+                <h2 className="text-lg font-semibold">So'nggi foydalanuvchilar</h2>
+                <p className="mt-1 text-sm text-[#94A3B8]">
+                  Oxirgi qo'shilgan foydalanuvchilar holati bilan birga.
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead className="bg-[#1E293B] text-left text-xs uppercase tracking-[0.18em] text-[#94A3B8]">
+                    <tr>
+                      <th className="px-6 py-4 font-medium">Ism</th>
+                      <th className="px-6 py-4 font-medium">Email</th>
+                      <th className="px-6 py-4 font-medium">Qo'shilgan sana</th>
+                      <th className="px-6 py-4 font-medium">Holat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentUsers.map((user, index) => (
+                      <tr
+                        key={user.email}
+                        className={`border-t border-[#1E293B] ${
+                          index % 2 === 0 ? "bg-[#111111]" : "bg-[#0D0D0D]"
+                        }`}
+                      >
+                        <td className="px-6 py-4">
+                          <p className="font-medium text-[#F8FAFC]">{user.name}</p>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-[#94A3B8]">{user.email}</td>
+                        <td className="px-6 py-4 text-sm text-[#94A3B8]">{user.joinedAt}</td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex rounded-full border border-[#22C55E]/30 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#22C55E]">
+                            {user.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#1E293B] bg-[#111111] xl:col-span-2">
+              <div className="border-b border-[#1E293B] px-6 py-5">
+                <h2 className="text-lg font-semibold">Kurslar holati</h2>
+                <p className="mt-1 text-sm text-[#94A3B8]">
+                  Kurslarning nashr holati va mavzular soni.
+                </p>
+              </div>
+
+              <div className="space-y-4 p-6">
+                {courseStatuses.map((course) => (
+                  <div
+                    key={course.name}
+                    className="rounded-xl border border-[#1E293B] bg-[#0A0A0A] p-4 transition hover:border-[#22C55E]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-[#F8FAFC]">{course.name}</p>
+                        <p className="mt-1 text-sm text-[#94A3B8]">{course.topicCount} ta mavzu</p>
+                      </div>
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                          course.status === "Nashr etilgan"
+                            ? "bg-[#22C55E]/10 text-[#22C55E]"
+                            : "bg-[#1E293B] text-[#94A3B8]"
+                        }`}
+                      >
+                        {course.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
   );
 };

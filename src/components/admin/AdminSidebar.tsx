@@ -1,10 +1,10 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { BarChart3, BookOpen, FileText, LayoutDashboard, LogOut, Users } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { LayoutDashboard, FolderTree, BookOpen, FileText, Users, BarChart3, LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const navItems = [
   { label: "Bosh sahifa", icon: LayoutDashboard, href: "/admin" },
-  { label: "Kategoriyalar", icon: FolderTree, href: "/admin/categories" },
   { label: "Kurslar", icon: BookOpen, href: "/admin/courses" },
   { label: "Mavzular", icon: FileText, href: "/admin/topics" },
   { label: "Foydalanuvchilar", icon: Users, href: "/admin/users" },
@@ -13,52 +13,75 @@ const navItems = [
 
 const AdminSidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = '/';
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
   };
 
   return (
-    <aside className="w-[240px] bg-card border-r border-border flex flex-col shrink-0 min-h-screen">
-      <div className="p-5 border-b border-border flex items-center">
-        <Link to="/" className="flex items-center">
+    <aside className="flex min-h-screen w-full max-w-[280px] shrink-0 flex-col border-r border-[#1E293B] bg-[#0D0D0D]">
+      <div className="border-b border-[#1E293B] px-6 py-6">
+        <Link to="/" className="inline-flex items-center">
           <Logo className="h-14 w-auto" />
         </Link>
       </div>
 
-      <nav className="flex-1 py-3">
+      <nav className="flex-1 space-y-2 px-4 py-6">
         {navItems.map((item) => {
           const active = location.pathname === item.href;
+
           return (
             <Link
               key={item.label}
               to={item.href}
-              className={`flex items-center gap-3 px-5 py-3 text-sm transition-colors ${
+              className={`flex items-center gap-3 rounded-r-xl px-4 py-3 text-sm font-medium transition-all ${
                 active
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  ? "border-l-2 border-[#22C55E] bg-[#22C55E]/10 text-[#22C55E]"
+                  : "border-l-2 border-transparent text-[#94A3B8] hover:text-[#F8FAFC]"
               }`}
             >
-              <item.icon className="w-4 h-4" />
-              {item.label}
+              <item.icon className="h-4 w-4" />
+              <span>{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-border flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm">👤</div>
-        <div className="flex-1 min-w-0">
-          <p className="text-foreground text-sm font-medium truncate">Super Admin</p>
+      <div className="border-t border-[#1E293B] px-4 py-5">
+        <div className="flex items-center gap-3 rounded-2xl border border-[#1E293B] bg-[#111111] p-3">
+          {user?.avatar ? (
+            <img
+              src={user.avatar}
+              alt={user.name}
+              className="h-11 w-11 rounded-full border border-[#1E293B] object-cover"
+            />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#22C55E]/10 text-sm font-semibold text-[#22C55E]">
+              {user?.name?.slice(0, 1).toUpperCase() ?? "A"}
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-[#F8FAFC]">
+              {user?.name ?? "Super Admin"}
+            </p>
+            <p className="truncate text-xs text-[#94A3B8]">
+              {user?.email ?? "admin@innohub.uz"}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0A0A0A] text-[#94A3B8] transition hover:border-[#22C55E] hover:text-[#22C55E]"
+            title="Tizimdan chiqish"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          onClick={handleLogout}
-          className="text-muted-foreground hover:text-destructive cursor-pointer"
-          title="Tizimdan chiqish"
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
       </div>
     </aside>
   );

@@ -1,63 +1,90 @@
-import { Link } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
-import { useCourses } from "@/hooks/useCourses";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { courses } from "@/data/courses";
+import { getStoredCourseProgress } from "@/hooks/useCourseProgress";
+import { cn } from "@/lib/utils";
 
 const Courses = () => {
-  const { data: courses = [], isLoading } = useCourses();
+  const navigate = useNavigate();
 
-  const levelColors: Record<string, string> = {
-    Beginner: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-    Intermediate: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-    Advanced: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  };
+  const courseProgress = useMemo(
+    () =>
+      courses.map((course) => {
+        const completedLessons = getStoredCourseProgress(course.id).completedLessons.length;
+        return {
+          ...course,
+          completedLessons,
+          progressPercent: Math.round((completedLessons / course.totalLessons) * 100),
+        };
+      }),
+    [],
+  );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white dark:bg-[#0A0A0A]">
       <Navbar />
-      <section className="py-20 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h1 className="text-4xl font-bold text-foreground mb-4">
-              Barcha kurslar
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Sifatli IT ta&apos;limni o&apos;zbek tilida o&apos;rganing
+      <section className="py-16 sm:py-20 px-4">
+        <div className="max-w-7xl mx-auto space-y-12">
+          <div className="text-center max-w-3xl mx-auto space-y-4">
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-[#F8FAFC]">Barcha kurslar</h1>
+            <p className="text-lg text-gray-500 dark:text-[#94A3B8]">
+              HTML, CSS va JavaScript bo'yicha bosqichma-bosqich darslar bilan o'zbek tilida o'rganing.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {isLoading ? (
-              <p className="text-muted-foreground col-span-full text-center py-12">Yuklanmoqda...</p>
-            ) : (
-            courses.map((course) => (
-              <div
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {courseProgress.map((course) => (
+              <Card
                 key={course.id}
-                className="bg-card border border-border rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-8"
+                className="overflow-hidden bg-gray-100 border border-gray-200 transition-all hover:border-[#22C55E] dark:bg-[#111111] dark:border-[#1E293B]"
               >
-                <div className="text-5xl mb-6 inline-block p-4 bg-muted rounded-lg">
-                  {course.icon}
+                <div className={cn("flex h-[140px] items-center justify-center bg-gradient-to-br", course.gradient)}>
+                  {course.image ? (
+                    <img
+                      src={course.image}
+                      alt={course.title}
+                      className="h-24 w-24 object-contain"
+                    />
+                  ) : (
+                    <span className="text-6xl">{course.icon}</span>
+                  )}
                 </div>
-                <h3 className="text-2xl font-bold text-foreground mb-3">
-                  {course.title}
-                </h3>
-                <p className="text-muted-foreground mb-6 leading-relaxed">
-                  {course.description}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`px-4 py-2 text-sm font-semibold rounded-full ${levelColors[course.level]}`}
+                <CardContent className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-semibold text-gray-900 dark:text-[#F8FAFC]">{course.title}</h2>
+                    <p className="text-sm leading-6 text-gray-500 dark:text-[#94A3B8]">{course.description}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <Badge className="border border-[#22C55E] bg-transparent text-[#22C55E]">
+                      {course.level}
+                    </Badge>
+                    <span className="text-sm text-gray-500 dark:text-[#94A3B8]">{course.duration}</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Progress value={course.progressPercent} className="h-2 bg-gray-200 dark:bg-[#1E293B]" />
+                    <div className="flex items-center justify-between text-sm text-gray-500 dark:text-[#94A3B8]">
+                      <span>{course.completedLessons}/{course.totalLessons} dars</span>
+                      <span>{course.progressPercent}%</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    className="w-full bg-[#22C55E] text-black font-semibold hover:bg-[#16A34A]"
+                    onClick={() => navigate(`/course/${course.id}`)}
                   >
-                    {course.level}
-                  </span>
-                  <Link
-                    to="/lesson"
-                    className="text-primary hover:text-primary/80 font-semibold transition-colors"
-                  >
-                    Boshlash →
-                  </Link>
-                </div>
-              </div>
-            )))}
+                    {course.completedLessons > 0 ? "Davom ettirish" : "Boshlash"}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
