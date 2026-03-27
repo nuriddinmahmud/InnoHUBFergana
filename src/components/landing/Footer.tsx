@@ -3,26 +3,34 @@ import { Logo } from "@/components/Logo";
 
 const Footer = () => {
   return (
-    <footer className="w-full bg-card border-t border-border">
-      <div className="container max-w-[1440px] mx-auto px-8 py-14">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          {/* Left */}
+    <footer className="w-full border-t border-border bg-card">
+      <div className="container mx-auto max-w-[1440px] px-8 py-14">
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-3">
           <div>
-            <Link to="/" className="flex items-center mb-4">
+            <Link to="/" className="mb-4 flex items-center">
               <Logo className="h-20 w-auto" />
             </Link>
-            <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
-              O'zbek tilida dasturlashni o'rgatuvchi bepul platforma
+            <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+              O&apos;zbek tilida dasturlashni o&apos;rgatuvchi bepul platforma
             </p>
             <div className="flex gap-3">
-              <a href="https://t.me/IT_Shaharcha_Yaypan" className="text-muted-foreground hover:text-primary transition-colors text-sm">Telegram</a>
-              <a href="https://www.instagram.com/it_shaharcha_yaypan?utm_source=qr&igsh=cWthM2x1ZTlyYXVu" className="text-muted-foreground hover:text-primary transition-colors text-sm">Instagram</a>
+              <a
+                href="https://t.me/IT_Shaharcha_Yaypan"
+                className="text-sm text-muted-foreground transition-colors hover:text-primary"
+              >
+                Telegram
+              </a>
+              <a
+                href="https://www.instagram.com/it_shaharcha_yaypan?utm_source=qr&igsh=cWthM2x1ZTlyYXVu"
+                className="text-sm text-muted-foreground transition-colors hover:text-primary"
+              >
+                Instagram
+              </a>
             </div>
           </div>
 
-          {/* Center */}
           <div>
-            <h4 className="text-foreground font-semibold text-[15px] mb-4">Navigatsiya</h4>
+            <h4 className="mb-4 text-[15px] font-semibold text-foreground">Navigatsiya</h4>
             <div className="flex flex-col gap-2.5">
               {[
                 { label: "Bosh sahifa", href: "/" },
@@ -30,25 +38,38 @@ const Footer = () => {
                 { label: "Kompilyator", href: "/compiler" },
                 { label: "Biz haqimizda", href: "/#about" },
               ].map((link) => (
-                <Link key={link.label} to={link.href} className="text-muted-foreground text-sm hover:text-primary transition-colors">
+                <Link
+                  key={link.label}
+                  to={link.href}
+                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                >
                   {link.label}
                 </Link>
               ))}
             </div>
           </div>
 
-          {/* Right */}
           <div>
-            <h4 className="text-foreground font-semibold text-[15px] mb-4">Aloqa</h4>
-            <p className="text-muted-foreground text-sm mb-2">Toshkent, O'zbekiston</p>
-            <a href="#" className="text-muted-foreground text-sm hover:text-primary transition-colors block mb-1">Telegram</a>
-            <a href="#" className="text-muted-foreground text-sm hover:text-primary transition-colors block">Instagram</a>
+            <h4 className="mb-4 text-[15px] font-semibold text-foreground">Aloqa</h4>
+            <p className="mb-2 text-sm text-muted-foreground">Toshkent, O&apos;zbekiston</p>
+            <a
+              href="https://t.me/IT_Shaharcha_Yaypan"
+              className="mb-1 block text-sm text-muted-foreground transition-colors hover:text-primary"
+            >
+              Telegram
+            </a>
+            <a
+              href="https://www.instagram.com/it_shaharcha_yaypan?utm_source=qr&igsh=cWthM2x1ZTlyYXVu"
+              className="block text-sm text-muted-foreground transition-colors hover:text-primary"
+            >
+              Instagram
+            </a>
           </div>
         </div>
       </div>
 
       <div className="border-t border-border py-5 text-center">
-        <p className="text-muted-foreground/50 text-[13px]">© 2026 Inno HUB. Barcha huquqlar himoyalangan.</p>
+        <p className="text-[13px] text-muted-foreground/50">© 2026 Inno HUB. Barcha huquqlar himoyalangan.</p>
       </div>
     </footer>
   );

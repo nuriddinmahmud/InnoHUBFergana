@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { BarChart3, BookOpen, FileText, LayoutDashboard, LogOut, Users } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/context/AuthContext";
+import { getAvatarSrc, handleAvatarError } from "@/lib/auth";
 
 const navItems = [
   { label: "Bosh sahifa", icon: LayoutDashboard, href: "/admin" },
@@ -52,10 +53,11 @@ const AdminSidebar = () => {
 
       <div className="border-t border-[#1E293B] px-4 py-5">
         <div className="flex items-center gap-3 rounded-2xl border border-[#1E293B] bg-[#111111] p-3">
-          {user?.avatar ? (
+          {user?.avatar || user?.avatarUrl ? (
             <img
-              src={user.avatar}
+              src={getAvatarSrc(user.avatar, user.avatarUrl)}
               alt={user.name}
+              onError={handleAvatarError}
               className="h-11 w-11 rounded-full border border-[#1E293B] object-cover"
             />
           ) : (

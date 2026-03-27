@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -53,17 +53,24 @@ const App = () => (
             path="/course/:courseId/lesson/:lessonId"
             element={
               <ProtectedRoute>
-                <CoursePage />
+                <Lesson />
               </ProtectedRoute>
             }
           />
-          <Route path="/lesson" element={<Lesson />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/lesson" element={<Navigate to="/courses" replace />} />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/compiler" element={<Compiler />} />
           <Route
             path="/admin"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="ADMIN">
                 <AdminDashboard />
               </ProtectedRoute>
             }
@@ -71,7 +78,7 @@ const App = () => (
           <Route
             path="/admin/courses"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="ADMIN">
                 <AdminCourses />
               </ProtectedRoute>
             }
@@ -79,7 +86,7 @@ const App = () => (
           <Route
             path="/admin/topics"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="ADMIN">
                 <AdminTopics />
               </ProtectedRoute>
             }
@@ -87,7 +94,7 @@ const App = () => (
           <Route
             path="/admin/users"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="ADMIN">
                 <AdminUsers />
               </ProtectedRoute>
             }
@@ -95,7 +102,7 @@ const App = () => (
           <Route
             path="/admin/stats"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="ADMIN">
                 <AdminStatistics />
               </ProtectedRoute>
             }

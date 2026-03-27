@@ -1,124 +1,247 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { ArrowLeft, Eye, EyeOff, ImagePlus, LoaderCircle } from "lucide-react";
+import { toast } from "sonner";
+import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { register as registerUser } from "@/api/auth";
-import { ApiError } from "@/lib/api";
-import { Logo } from "@/components/Logo";
 import { useAuth } from "@/context/AuthContext";
+import { getApiErrorMessage } from "@/lib/api";
+import { getGoogleAuthErrorMessage, getGoogleRedirectProfile, signInWithGoogle } from "@/lib/googleAuth";
+
+type RegisterFormState = {
+  name: string;
+  surname: string;
+  email: string;
+  password: string;
+  avatarUrl: string;
+};
 
 const Register = () => {
   const navigate = useNavigate();
-  const { loginWithGoogle } = useAuth();
+  const { register, loginWithFirebase, isAuthenticated, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
+  const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [googleRedirectSubmitting, setGoogleRedirectSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState("");
+  const [formData, setFormData] = useState<RegisterFormState>({
     name: "",
     surname: "",
     email: "",
     password: "",
+    avatarUrl: "",
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  const strength = formData.password.length === 0 ? 0 : formData.password.length < 6 ? 1 : formData.password.length < 10 ? 2 : 3;
-  const strengthColors = ["", "bg-[#EF4444]", "bg-yellow-500", "bg-[#22C55E]"];
-  const strengthLabels = ["", "Kuchsiz", "O'rtacha", "Kuchli"];
+  const fullName = useMemo(
+    () => [formData.name.trim(), formData.surname.trim()].filter(Boolean).join(" ").trim(),
+    [formData.name, formData.surname],
+  );
+  const isSubmitting = submitting || googleSubmitting || googleRedirectSubmitting;
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  if (!loading && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const completeRedirectSignIn = async () => {
+      setGoogleRedirectSubmitting(true);
+
+      try {
+        const googleProfile = await getGoogleRedirectProfile();
+
+        if (!googleProfile || !isMounted) {
+          return;
+        }
+
+        await loginWithFirebase(googleProfile);
+
+        if (isMounted) {
+          navigate("/dashboard", { replace: true });
+        }
+      } catch (err) {
+        if (!isMounted) {
+          return;
+        }
+
+        console.error("Google redirect authentication failed", err);
+        const message = getGoogleAuthErrorMessage(
+          err,
+          getApiErrorMessage(err, "Google redirect orqali kirishda xato yuz berdi."),
+        );
+        setError(message);
+        toast.error(message);
+      } finally {
+        if (isMounted) {
+          setGoogleRedirectSubmitting(false);
+        }
+      }
+    };
+
+    void completeRedirectSignIn();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loginWithFirebase, navigate]);
+
+  const handleRegister = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError("");
 
-    if (!formData.name || !formData.surname || !formData.email || !formData.password) {
-      setError("Barcha maydonlarni to'ldiring");
+    const name = formData.name.trim();
+    const surname = formData.surname.trim();
+    const email = formData.email.trim();
+    const password = formData.password.trim();
+    const avatarUrl = formData.avatarUrl.trim();
+    const normalizedFullName = [name, surname].filter(Boolean).join(" ").trim();
+
+    if (!name) {
+      setError("Ism majburiy.");
       return;
     }
 
-    if (formData.password.length < 8) {
-      setError("Parol kamida 8 ta belgiga ega bo'lishi kerak");
+    if (!email) {
+      setError("Email majburiy.");
       return;
     }
 
-    setLoading(true);
+    if (!password) {
+      setError("Parol majburiy.");
+      return;
+    }
+
+    if (!normalizedFullName) {
+      setError("To'liq ism kiritilishi kerak.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Parol kamida 8 ta belgidan iborat bo'lishi kerak.");
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      await registerUser({
-        name: formData.name,
-        surname: formData.surname,
-        email: formData.email,
-        password: formData.password,
+      await register({
+        email,
+        password,
+        fullName: normalizedFullName,
+        ...(avatarUrl ? { avatarUrl } : {}),
       });
-
-      navigate("/dashboard", { replace: true });
-    } catch (err: unknown) {
-      setError(err instanceof ApiError ? err.message : "Ro'yxatdan o'tishda xato yuz berdi");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setError("");
-    setLoading(true);
-
-    try {
-      await loginWithGoogle();
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Google orqali kirishda xato");
+      setError(getApiErrorMessage(err, "Ro'yxatdan o'tishda xato yuz berdi."));
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
+
+  const handleImageFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedImageFile(file);
+
+    if (!file) {
+      setLocalPreviewUrl("");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setLocalPreviewUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleGoogleRegister = async () => {
+    setError("");
+    setGoogleSubmitting(true);
+
+    try {
+      const result = await signInWithGoogle();
+
+      if (result.status === "redirect") {
+        return;
+      }
+
+      await loginWithFirebase(result.profile);
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      console.error("Google authentication failed", err);
+      const message = getGoogleAuthErrorMessage(
+        err,
+        getApiErrorMessage(err, "Google orqali kirishda xato yuz berdi."),
+      );
+      setError(message);
+      toast.error(message);
+    } finally {
+      setGoogleSubmitting(false);
+    }
+  };
+
+  const previewImage = formData.avatarUrl.trim() || localPreviewUrl;
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] px-4 py-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="mx-auto max-w-6xl">
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="mb-8 inline-flex items-center gap-2 text-[#94A3B8] hover:text-[#22C55E] transition-colors"
+          className="mb-8 inline-flex items-center gap-2 text-[#94A3B8] transition-colors hover:text-[#22C55E]"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Bosh sahifaga qaytish</span>
         </button>
 
         <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
-          <div className="w-full max-w-[440px] rounded-2xl border border-[#1E293B] bg-[#111111] p-8 sm:p-10 shadow-[0_0_40px_rgba(34,197,94,0.08)]">
+          <div className="w-full max-w-[520px] rounded-2xl border border-[#1E293B] bg-[#111111] p-8 shadow-[0_0_40px_rgba(34,197,94,0.08)] sm:p-10">
             <div className="mb-6 flex items-center justify-center">
               <Link to="/" className="flex items-center">
                 <Logo className="h-24 w-auto" />
               </Link>
             </div>
 
-            <div className="mb-8 text-center">
-              <h1 className="text-[28px] font-bold text-[#F8FAFC]">Ro&apos;yxatdan o&apos;ting</h1>
-              <p className="mt-2 text-[15px] text-[#94A3B8]">Bepul hisob yarating</p>
+            <div className="mb-8 space-y-4">
+              <Button
+                type="button"
+                onClick={handleGoogleRegister}
+                disabled={isSubmitting}
+                className="h-12 w-full rounded-xl border border-[#1E293B] bg-[#0A0A0A] font-semibold text-[#F8FAFC] hover:border-[#22C55E] hover:bg-[#111111]"
+              >
+                {googleSubmitting ? (
+                  <>
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                    Connecting to Google...
+                  </>
+                ) : googleRedirectSubmitting ? (
+                  <>
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                    Completing Google sign-in...
+                  </>
+                ) : (
+                  <>
+                    <GoogleIcon className="mr-3 h-5 w-5" />
+                    Continue with Google
+                  </>
+                )}
+              </Button>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-[#1E293B]" />
+                <span className="text-xs uppercase tracking-[0.24em] text-[#94A3B8]">yoki</span>
+                <div className="h-px flex-1 bg-[#1E293B]" />
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="mb-6 flex w-full items-center justify-center gap-3 rounded-xl border border-[#1E293B] bg-white px-4 py-3 text-[15px] font-medium text-black transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70"
-              title="Google bilan davom etish"
-            >
-              {loading ? (
-                <LoaderCircle className="h-5 w-5 animate-spin" />
-              ) : (
-                <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-              )}
-              {loading ? "Kirish..." : "Continue with Google"}
-            </button>
-
-            <div className="mb-6 flex items-center gap-4">
-              <div className="h-px flex-1 bg-[#1E293B]" />
-              <span className="text-sm text-[#94A3B8]">yoki</span>
-              <div className="h-px flex-1 bg-[#1E293B]" />
+            <div className="mb-8 text-center">
+              <h1 className="text-[28px] font-bold text-[#F8FAFC]">Ro&apos;yxatdan o&apos;ting</h1>
+              <p className="mt-2 text-[15px] text-[#94A3B8]">Yangi hisob yarating</p>
             </div>
 
             <form onSubmit={handleRegister} className="space-y-4">
@@ -126,31 +249,35 @@ const Register = () => {
                 <div>
                   <label className="mb-1 block text-sm text-[#94A3B8]">Ism</label>
                   <Input
-                    placeholder="Ma'murjon"
-                    className="h-12 rounded-xl border-[#1E293B] bg-[#0A0A0A] px-4 text-[#F8FAFC] placeholder:text-[#94A3B8]/50 focus-visible:ring-0 focus-visible:border-[#22C55E]"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(event) => setFormData((current) => ({ ...current, name: event.target.value }))}
+                    className="h-12 rounded-xl border-[#1E293B] bg-[#0A0A0A] px-4 text-[#F8FAFC] placeholder:text-[#94A3B8]/50 focus-visible:border-[#22C55E] focus-visible:ring-0"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm text-[#94A3B8]">Familiya</label>
                   <Input
-                    placeholder="Saidov"
-                    className="h-12 rounded-xl border-[#1E293B] bg-[#0A0A0A] px-4 text-[#F8FAFC] placeholder:text-[#94A3B8]/50 focus-visible:ring-0 focus-visible:border-[#22C55E]"
                     value={formData.surname}
-                    onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
+                    onChange={(event) => setFormData((current) => ({ ...current, surname: event.target.value }))}
+                    className="h-12 rounded-xl border-[#1E293B] bg-[#0A0A0A] px-4 text-[#F8FAFC] placeholder:text-[#94A3B8]/50 focus-visible:border-[#22C55E] focus-visible:ring-0"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm text-[#94A3B8]">Email manzil</label>
+                <label className="mb-1 block text-sm text-[#94A3B8]">To&apos;liq ism</label>
+                <div className="rounded-xl border border-[#1E293B] bg-[#0A0A0A] px-4 py-3 text-sm text-[#F8FAFC]">
+                  {fullName || "Ism va familiya kiritilgach shu yerda ko'rinadi"}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm text-[#94A3B8]">Email</label>
                 <Input
                   type="email"
-                  placeholder="mamurjon@email.com"
-                  className="h-12 rounded-xl border-[#1E293B] bg-[#0A0A0A] px-4 text-[#F8FAFC] placeholder:text-[#94A3B8]/50 focus-visible:ring-0 focus-visible:border-[#22C55E]"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(event) => setFormData((current) => ({ ...current, email: event.target.value }))}
+                  className="h-12 rounded-xl border-[#1E293B] bg-[#0A0A0A] px-4 text-[#F8FAFC] placeholder:text-[#94A3B8]/50 focus-visible:border-[#22C55E] focus-visible:ring-0"
                 />
               </div>
 
@@ -159,42 +286,69 @@ const Register = () => {
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="h-12 rounded-xl border-[#1E293B] bg-[#0A0A0A] px-4 pr-12 text-[#F8FAFC] placeholder:text-[#94A3B8]/50 focus-visible:ring-0 focus-visible:border-[#22C55E]"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(event) => setFormData((current) => ({ ...current, password: event.target.value }))}
+                    className="h-12 rounded-xl border-[#1E293B] bg-[#0A0A0A] px-4 pr-12 text-[#F8FAFC] placeholder:text-[#94A3B8]/50 focus-visible:border-[#22C55E] focus-visible:ring-0"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#22C55E] transition-colors"
-                    title={showPassword ? "Parolni yashirish" : "Parolni ko'rsatish"}
+                    onClick={() => setShowPassword((current) => !current)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] transition-colors hover:text-[#22C55E]"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+              </div>
 
-                {formData.password.length > 0 ? (
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="flex flex-1 gap-1">
-                      {[1, 2, 3].map((index) => (
-                        <div
-                          key={index}
-                          className={`h-1.5 flex-1 rounded-full ${index <= strength ? strengthColors[strength] : "bg-[#1E293B]"}`}
-                        />
-                      ))}
+              <div className="space-y-3 rounded-2xl border border-[#1E293B] bg-[#0A0A0A] p-4">
+                <div>
+                  <label className="mb-1 block text-sm text-[#94A3B8]">Avatar URL</label>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/avatar.jpg"
+                    value={formData.avatarUrl}
+                    onChange={(event) => setFormData((current) => ({ ...current, avatarUrl: event.target.value }))}
+                    className="h-12 rounded-xl border-[#1E293B] bg-[#111111] px-4 text-[#F8FAFC] placeholder:text-[#94A3B8]/50 focus-visible:border-[#22C55E] focus-visible:ring-0"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-[#94A3B8]">Yoki lokal rasm tanlang</label>
+                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-[#1E293B] px-4 py-4 text-sm text-[#94A3B8] transition hover:border-[#22C55E] hover:text-[#22C55E]">
+                    <ImagePlus className="h-4 w-4" />
+                    Rasm tanlash
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageFileChange} />
+                  </label>
+                  <p className="mt-2 text-xs text-[#94A3B8]">
+                    Lokal fayl hozircha faqat preview uchun ishlatiladi. Upload backendga yuborilmaydi, chunki file-upload endpoint yo&apos;q.
+                  </p>
+                </div>
+
+                {previewImage ? (
+                  <div className="flex items-center gap-4 rounded-xl border border-[#1E293B] bg-[#111111] p-3">
+                    <img src={previewImage} alt="Avatar preview" className="h-16 w-16 rounded-full object-cover" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[#F8FAFC]">Avatar preview</p>
+                      <p className="truncate text-xs text-[#94A3B8]">
+                        {formData.avatarUrl.trim() || selectedImageFile?.name || "Lokal preview"}
+                      </p>
                     </div>
-                    <span className="text-xs text-[#94A3B8]">{strengthLabels[strength]}</span>
                   </div>
                 ) : null}
               </div>
 
+              {error ? (
+                <div className="rounded-xl border border-[#EF4444] bg-[#EF4444]/10 px-4 py-3 text-sm text-[#EF4444]">
+                  {error}
+                </div>
+              ) : null}
+
               <Button
                 type="submit"
-                className="mt-2 h-12 w-full rounded-xl bg-[#22C55E] py-3 font-semibold text-black hover:bg-[#16A34A]"
-                disabled={loading}
+                disabled={isSubmitting}
+                className="h-12 w-full rounded-xl bg-[#22C55E] font-semibold text-black hover:bg-[#16A34A]"
               >
-                {loading ? (
+                {submitting ? (
                   <>
                     <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                     Ro&apos;yxatdan o&apos;tilmoqda...
@@ -204,12 +358,6 @@ const Register = () => {
                 )}
               </Button>
             </form>
-
-            {error ? (
-              <div className="mt-4 rounded-xl border border-[#EF4444] bg-[#EF4444]/10 px-4 py-3 text-sm text-[#EF4444]">
-                {error}
-              </div>
-            ) : null}
 
             <p className="mt-6 text-center text-sm text-[#94A3B8]">
               Hisobingiz bormi?{" "}
@@ -223,5 +371,26 @@ const Register = () => {
     </div>
   );
 };
+
+const GoogleIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={className}>
+    <path
+      d="M21.805 10.023H12.25v3.955h5.512c-.236 1.274-.96 2.352-2.006 3.076v2.551h3.244c1.899-1.748 2.995-4.322 2.995-7.38 0-.733-.066-1.437-.19-2.202Z"
+      fill="#4285F4"
+    />
+    <path
+      d="M12.25 22c2.734 0 5.027-.907 6.703-2.446l-3.244-2.551c-.902.605-2.057.962-3.459.962-2.643 0-4.883-1.783-5.682-4.181H3.217v2.632A10.117 10.117 0 0 0 12.25 22Z"
+      fill="#34A853"
+    />
+    <path
+      d="M6.568 13.784A6.088 6.088 0 0 1 6.25 12c0-.619.111-1.219.318-1.784V7.584H3.217A10.118 10.118 0 0 0 2.125 12c0 1.634.391 3.182 1.092 4.416l3.35-2.632Z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M12.25 6.036c1.486 0 2.82.511 3.869 1.512l2.902-2.901C17.273 3.018 14.98 2 12.25 2a10.117 10.117 0 0 0-9.033 5.584l3.35 2.632c.799-2.398 3.04-4.18 5.683-4.18Z"
+      fill="#EA4335"
+    />
+  </svg>
+);
 
 export default Register;

@@ -1,107 +1,95 @@
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  GoogleAuthProvider,
-  type User as FirebaseUser,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-} from "firebase/auth";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
-import { auth, googleProvider } from "@/lib/firebase";
-
-type StoredUser = {
-  id: string;
-  email: string;
-  name: string;
-  avatar?: string;
-  photoURL?: string;
-  token: string;
-};
+  getCurrentUser,
+  login as loginRequest,
+  loginWithFirebase as loginWithFirebaseRequest,
+  logout as logoutRequest,
+  register as registerRequest,
+} from "@/api/auth.api";
+import { clearAuth, getStoredUser, hasStoredAuth, saveUser } from "@/lib/auth";
+import type { FirebaseAuthPayload, LoginPayload, RegisterPayload, UserProfile } from "@/types/api";
 
 type AuthContextValue = {
-  user: StoredUser | null;
+  user: UserProfile | null;
   loading: boolean;
-  token: string | null;
-  loginWithGoogle: () => Promise<void>;
+  isAuthenticated: boolean;
+  login: (payload: LoginPayload) => Promise<UserProfile>;
+  loginWithFirebase: (payload: FirebaseAuthPayload) => Promise<UserProfile>;
+  register: (payload: RegisterPayload) => Promise<UserProfile>;
   logout: () => Promise<void>;
+  loadUser: () => Promise<UserProfile | null>;
+  refreshProfile: () => Promise<UserProfile | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function buildStoredUser(firebaseUser: FirebaseUser, token: string): StoredUser {
-  return {
-    id: firebaseUser.uid,
-    email: firebaseUser.email ?? "",
-    name: firebaseUser.displayName ?? firebaseUser.email?.split("@")[0] ?? "Foydalanuvchi",
-    avatar: firebaseUser.photoURL ?? undefined,
-    photoURL: firebaseUser.photoURL ?? undefined,
-    token,
-  };
-}
-
-function readStoredUser(): StoredUser | null {
-  try {
-    const raw = localStorage.getItem("user");
-    if (!raw) return null;
-    return JSON.parse(raw) as StoredUser;
-  } catch {
-    return null;
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<StoredUser | null>(() => readStoredUser());
+  const [user, setUser] = useState<UserProfile | null>(() => getStoredUser());
   const [loading, setLoading] = useState(true);
 
+  const loadUser = async () => {
+    if (!hasStoredAuth()) {
+      setUser(null);
+      return null;
+    }
+
+    try {
+      const profile = await getCurrentUser();
+      saveUser(profile);
+      setUser(profile);
+      return profile;
+    } catch {
+      clearAuth();
+      setUser(null);
+      return null;
+    }
+  };
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        localStorage.removeItem("user");
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
-      const freshToken = await firebaseUser.getIdToken();
-      const storedUser = buildStoredUser(firebaseUser, freshToken);
-      localStorage.setItem("user", JSON.stringify(storedUser));
-      setUser(storedUser);
+    void (async () => {
+      await loadUser();
       setLoading(false);
-    });
-
-    return unsubscribe;
+    })();
   }, []);
 
-  const loginWithGoogle = async () => {
-    const result = await signInWithPopup(auth, googleProvider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    const firebaseUser = result.user;
-    const freshToken = credential?.accessToken ?? (await firebaseUser.getIdToken());
-    const storedUser = buildStoredUser(firebaseUser, freshToken);
+  const login = async (payload: LoginPayload) => {
+    const session = await loginRequest(payload);
+    setUser(session.user);
+    return session.user;
+  };
 
-    localStorage.setItem("user", JSON.stringify(storedUser));
-    setUser(storedUser);
+  const loginWithFirebase = async (payload: FirebaseAuthPayload) => {
+    const session = await loginWithFirebaseRequest(payload);
+    setUser(session.user);
+    return session.user;
+  };
+
+  const register = async (payload: RegisterPayload) => {
+    const session = await registerRequest(payload);
+    setUser(session.user);
+    return session.user;
   };
 
   const logout = async () => {
-    await signOut(auth);
-    localStorage.removeItem("user");
-    setUser(null);
+    try {
+      await logoutRequest();
+    } finally {
+      clearAuth();
+      setUser(null);
+    }
   };
 
   const value = useMemo(
     () => ({
       user,
       loading,
-      token: user?.token ?? null,
-      loginWithGoogle,
+      isAuthenticated: Boolean(user),
+      login,
+      loginWithFirebase,
+      register,
       logout,
+      loadUser,
+      refreshProfile: loadUser,
     }),
     [loading, user],
   );

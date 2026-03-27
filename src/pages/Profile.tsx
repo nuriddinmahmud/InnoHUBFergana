@@ -1,98 +1,173 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/landing/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, Lock, Download } from "lucide-react";
+import { Camera, Download, Lock } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { getCurrentUserProfile } from "@/api/auth";
+import { getAvatarSrc, handleAvatarError } from "@/lib/auth";
 
 const Profile = () => {
-  const [formData, setFormData] = useState({ firstName: "Ma'murjon", lastName: "Saidov", email: "mamurjon@email.com" });
+  const { user, refreshProfile } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+  });
 
-  const handleSave = () => {
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProfile = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const profile = await getCurrentUserProfile();
+        if (!mounted) return;
+
+        const [firstName = "", ...rest] = profile.name.split(" ");
+        setFormData({
+          firstName,
+          lastName: rest.join(" "),
+          email: profile.email,
+        });
+      } catch (err) {
+        if (!mounted) return;
+        setError(err instanceof Error ? err.message : "Profil ma'lumotlarini yuklab bo'lmadi");
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSave = async () => {
     setSaved(true);
+    await refreshProfile();
     setTimeout(() => setSaved(false), 2000);
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="max-w-[800px] mx-auto px-8 py-12">
-        {/* Avatar */}
-        <div className="flex flex-col items-center mb-10">
+      <div className="mx-auto max-w-[800px] px-8 py-12">
+        <div className="mb-10 flex flex-col items-center">
           <div className="relative mb-4">
-            <div className="w-[120px] h-[120px] rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center text-4xl">
-              👨‍💻
-            </div>
-            <button className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground" title="Change profile picture">
-              <Camera className="w-4 h-4" />
+            {user?.avatar || user?.avatarUrl ? (
+              <img
+                src={getAvatarSrc(user.avatar, user.avatarUrl)}
+                alt={user.name}
+                onError={handleAvatarError}
+                className="h-[120px] w-[120px] rounded-full border-2 border-primary object-cover"
+              />
+            ) : (
+              <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full border-2 border-primary bg-primary/20 text-4xl">
+                {user?.name?.charAt(0).toUpperCase() ?? "I"}
+              </div>
+            )}
+            <button
+              type="button"
+              className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground"
+              title="Change profile picture"
+            >
+              <Camera className="h-4 w-4" />
             </button>
           </div>
-          <h2 className="text-[28px] font-bold">Ma'murjon Saidov</h2>
-          <p className="text-muted-foreground text-[15px] mb-2">mamurjon@email.com</p>
-          <span className="inline-flex px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-medium">
-            2025 yildan a'zo
+          <h2 className="text-[28px] font-bold">{user?.name ?? "Foydalanuvchi"}</h2>
+          <p className="mb-2 text-[15px] text-muted-foreground">{user?.email ?? "Email topilmadi"}</p>
+          <span className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+            {user?.role === "ADMIN" || user?.role === "SUPER_ADMIN" ? "Admin" : "Talaba"}
           </span>
         </div>
 
-        {/* Edit form */}
         <div className="mb-12">
-          <h3 className="text-xl font-semibold mb-6">Shaxsiy ma'lumotlar</h3>
-          {saved && (
-            <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 text-primary text-sm mb-4">
-              ✓ Profil muvaffaqiyatli yangilandi
+          <h3 className="mb-6 text-xl font-semibold">Shaxsiy ma&apos;lumotlar</h3>
+          {loading ? (
+            <div className="mb-4 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+              Profil yuklanmoqda...
             </div>
-          )}
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          ) : null}
+          {error ? (
+            <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-500">
+              {error}
+            </div>
+          ) : null}
+          {saved ? (
+            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
+              Profil muvaffaqiyatli yangilandi
+            </div>
+          ) : null}
+
+          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="text-foreground text-sm font-medium mb-1.5 block">Ism</label>
-              <Input 
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Ism</label>
+              <Input
                 value={formData.firstName}
-                onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                className="bg-card" 
+                onChange={(event) => setFormData({ ...formData, firstName: event.target.value })}
+                className="bg-card"
               />
             </div>
             <div>
-              <label className="text-foreground text-sm font-medium mb-1.5 block">Familiya</label>
-              <Input 
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Familiya</label>
+              <Input
                 value={formData.lastName}
-                onChange={(e) => setFormData({...formData, lastName: e.target.value})}
-                className="bg-card" 
+                onChange={(event) => setFormData({ ...formData, lastName: event.target.value })}
+                className="bg-card"
               />
             </div>
           </div>
+
           <div className="mb-6">
-            <label className="text-foreground text-sm font-medium mb-1.5 block">Email manzil</label>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">Email manzil</label>
             <div className="relative">
-              <Input 
+              <Input
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                className="bg-card pr-10" 
+                onChange={(event) => setFormData({ ...formData, email: event.target.value })}
+                className="bg-card pr-10"
               />
-              <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Lock className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             </div>
           </div>
+
           <div className="flex justify-end">
-            <Button onClick={handleSave} title="Profilni saqlash">Saqlash</Button>
+            <Button onClick={handleSave} title="Profilni saqlash">
+              Saqlash
+            </Button>
           </div>
         </div>
 
-        {/* Certificates */}
         <div>
-          <h3 className="text-xl font-semibold mb-6">Mening sertifikatlarim</h3>
+          <h3 className="mb-6 text-xl font-semibold">Mening sertifikatlarim</h3>
           <div className="space-y-3">
             {[
               { course: "HTML", date: "2025-01-15" },
               { course: "CSS", date: "2025-02-20" },
             ].map((cert) => (
-              <div key={cert.course} className="flex items-center gap-4 p-4 bg-card border border-border border-l-[3px] border-l-primary rounded-xl">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Download className="w-5 h-5 text-primary" />
+              <div
+                key={cert.course}
+                className="flex items-center gap-4 rounded-xl border border-border border-l-[3px] border-l-primary bg-card p-4"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Download className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-sm">{cert.course} kursi</p>
-                  <p className="text-muted-foreground text-xs">{cert.date}</p>
+                  <p className="text-sm font-semibold">{cert.course} kursi</p>
+                  <p className="text-xs text-muted-foreground">{cert.date}</p>
                 </div>
-                <button className="text-primary text-sm hover:underline">PDF yuklab olish</button>
+                <button type="button" className="text-sm text-primary hover:underline">
+                  PDF yuklab olish
+                </button>
               </div>
             ))}
           </div>

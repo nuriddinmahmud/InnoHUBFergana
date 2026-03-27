@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/Logo";
 import { Moon, Sun } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { getAvatarSrc, handleAvatarError } from "@/lib/auth";
 
 const Navbar = () => {
   const { resolvedTheme, setTheme } = useTheme();
@@ -19,6 +20,7 @@ const Navbar = () => {
     { label: "Bosh sahifa", href: "/" },
     { label: "Kurslar", href: "/courses" },
     ...(user ? [{ label: "Dashboard", href: "/dashboard" }] : []),
+    ...(user?.role === "ADMIN" || user?.role === "SUPER_ADMIN" ? [{ label: "Admin", href: "/admin" }] : []),
     { label: "Kompilyator", href: "/compiler" },
     { label: "Biz haqimizda", href: "/#about" },
   ];
@@ -71,10 +73,11 @@ const Navbar = () => {
                 to="/dashboard"
                 className="flex items-center gap-2 text-muted-foreground text-[15px] hover:text-foreground transition-colors"
               >
-                {user.avatar ? (
+                {user.avatar || user.avatarUrl ? (
                   <img
-                    src={user.avatar}
+                    src={getAvatarSrc(user.avatar, user.avatarUrl)}
                     alt={user.name}
+                    onError={handleAvatarError}
                     className="h-8 w-8 rounded-full border border-border object-cover"
                   />
                 ) : (

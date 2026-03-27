@@ -1,91 +1,120 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
-import { Button } from "@/components/ui/button";
+import Navbar from "@/components/landing/Navbar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { courses } from "@/data/courses";
-import { getStoredCourseProgress } from "@/hooks/useCourseProgress";
+import { useAuth } from "@/context/AuthContext";
+import { useCourses } from "@/hooks/useCourses";
+import { useEnrolledCourses } from "@/hooks/useEnrolledCourses";
+import { getApiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const Courses = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const coursesQuery = useCourses();
+  const enrolledCoursesQuery = useEnrolledCourses(isAuthenticated);
+  const coursesErrorMessage = getApiErrorMessage(coursesQuery.error, "Kurslar ma'lumotini yuklashda xato yuz berdi.");
 
-  const courseProgress = useMemo(
-    () =>
-      courses.map((course) => {
-        const completedLessons = getStoredCourseProgress(course.id).completedLessons.length;
-        return {
-          ...course,
-          completedLessons,
-          progressPercent: Math.round((completedLessons / course.totalLessons) * 100),
-        };
-      }),
-    [],
-  );
+  const courseCards = useMemo(() => {
+    const enrolledMap = new Map((enrolledCoursesQuery.data ?? []).map((item) => [item.id, item]));
+
+    return (coursesQuery.data ?? []).map((course) => {
+      const enrolled = enrolledMap.get(course.id);
+      return {
+        ...course,
+        isEnrolled: Boolean(enrolled),
+        completedTopicsCount: enrolled?.completedTopicsCount ?? 0,
+        progressPercent: enrolled?.progressPercent ?? 0,
+        lastTopicId: enrolled?.lastTopicId,
+      };
+    });
+  }, [coursesQuery.data, enrolledCoursesQuery.data]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0A0A0A]">
       <Navbar />
-      <section className="py-16 sm:py-20 px-4">
-        <div className="max-w-7xl mx-auto space-y-12">
-          <div className="text-center max-w-3xl mx-auto space-y-4">
-            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-[#F8FAFC]">Barcha kurslar</h1>
+      <section className="px-4 py-16 sm:py-20">
+        <div className="mx-auto max-w-7xl space-y-12">
+          <div className="mx-auto max-w-3xl space-y-4 text-center">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-[#F8FAFC] sm:text-5xl">Barcha kurslar</h1>
             <p className="text-lg text-gray-500 dark:text-[#94A3B8]">
-              HTML, CSS va JavaScript bo'yicha bosqichma-bosqich darslar bilan o'zbek tilida o'rganing.
+              Backenddan kelgan kurslar ro&apos;yxati, enrollment holati va progress shu yerda ko&apos;rinadi.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {courseProgress.map((course) => (
-              <Card
-                key={course.id}
-                className="overflow-hidden bg-gray-100 border border-gray-200 transition-all hover:border-[#22C55E] dark:bg-[#111111] dark:border-[#1E293B]"
-              >
-                <div className={cn("flex h-[140px] items-center justify-center bg-gradient-to-br", course.gradient)}>
-                  {course.image ? (
-                    <img
-                      src={course.image}
-                      alt={course.title}
-                      className="h-24 w-24 object-contain"
-                    />
-                  ) : (
-                    <span className="text-6xl">{course.icon}</span>
-                  )}
-                </div>
-                <CardContent className="p-6 space-y-4">
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-semibold text-gray-900 dark:text-[#F8FAFC]">{course.title}</h2>
-                    <p className="text-sm leading-6 text-gray-500 dark:text-[#94A3B8]">{course.description}</p>
+          {coursesQuery.isLoading ? (
+            <Card className="border border-gray-200 bg-gray-100 dark:border-[#1E293B] dark:bg-[#111111]">
+              <CardContent className="p-10 text-center text-sm text-gray-500 dark:text-[#94A3B8]">
+                Kurslar yuklanmoqda...
+              </CardContent>
+            </Card>
+          ) : coursesQuery.isError ? (
+            <Card className="border border-red-500/40 bg-red-500/10">
+              <CardContent className="p-10 text-center text-sm text-red-500">
+                {coursesErrorMessage}
+              </CardContent>
+            </Card>
+          ) : courseCards.length === 0 ? (
+            <Card className="border border-gray-200 bg-gray-100 dark:border-[#1E293B] dark:bg-[#111111]">
+              <CardContent className="p-10 text-center text-sm text-gray-500 dark:text-[#94A3B8]">
+                Hozircha foydalanuvchilar uchun nashr etilgan kurslar topilmadi.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {courseCards.map((course) => (
+                <Card
+                  key={course.id}
+                  className="overflow-hidden border border-gray-200 bg-gray-100 transition-all hover:border-[#22C55E] dark:border-[#1E293B] dark:bg-[#111111]"
+                >
+                  <div className={cn("flex h-[140px] items-center justify-center bg-gradient-to-br", course.gradient)}>
+                    {course.image ? (
+                      <img src={course.image} alt={course.title} className="h-24 w-24 object-contain" />
+                    ) : (
+                      <span className="text-5xl">{course.icon ?? "📘"}</span>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between gap-3">
-                    <Badge className="border border-[#22C55E] bg-transparent text-[#22C55E]">
-                      {course.level}
-                    </Badge>
-                    <span className="text-sm text-gray-500 dark:text-[#94A3B8]">{course.duration}</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Progress value={course.progressPercent} className="h-2 bg-gray-200 dark:bg-[#1E293B]" />
-                    <div className="flex items-center justify-between text-sm text-gray-500 dark:text-[#94A3B8]">
-                      <span>{course.completedLessons}/{course.totalLessons} dars</span>
-                      <span>{course.progressPercent}%</span>
+                  <CardContent className="space-y-4 p-6">
+                    <div className="space-y-2">
+                      <h2 className="text-2xl font-semibold text-gray-900 dark:text-[#F8FAFC]">{course.title}</h2>
+                      <p className="text-sm leading-6 text-gray-500 dark:text-[#94A3B8]">{course.description}</p>
                     </div>
-                  </div>
 
-                  <Button
-                    className="w-full bg-[#22C55E] text-black font-semibold hover:bg-[#16A34A]"
-                    onClick={() => navigate(`/course/${course.id}`)}
-                  >
-                    {course.completedLessons > 0 ? "Davom ettirish" : "Boshlash"}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <Badge className="border border-[#22C55E] bg-transparent text-[#22C55E]">{course.level}</Badge>
+                      <span className="text-sm text-gray-500 dark:text-[#94A3B8]">{course.duration}</span>
+                    </div>
+
+                    {course.isEnrolled ? (
+                      <div className="space-y-2">
+                        <Progress value={course.progressPercent} className="h-2 bg-gray-200 dark:bg-[#1E293B]" />
+                        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-[#94A3B8]">
+                          <span>{course.completedTopicsCount}/{course.totalLessons} dars</span>
+                          <span>{course.progressPercent}%</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-[#94A3B8]">
+                        {course.totalLessons} ta dars mavjud.
+                      </p>
+                    )}
+
+                    <Button
+                      className="w-full bg-[#22C55E] font-semibold text-black hover:bg-[#16A34A]"
+                      onClick={() => navigate(`/course/${course.id}`)}
+                    >
+                      {course.isEnrolled ? "Davom ettirish" : "Batafsil ko'rish"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
       <Footer />

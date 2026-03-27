@@ -1,75 +1,71 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Clock3 } from "lucide-react";
-import { Pie, PieChart, ResponsiveContainer, Cell } from "recharts";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, BookOpen, CheckCircle2, Clock3, PlayCircle } from "lucide-react";
 import Navbar from "@/components/landing/Navbar";
-import { Button } from "@/components/ui/button";
+import { enrollInCourse } from "@/api/enrollments.api";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { courses } from "@/data/courses";
-import { useCourseProgress } from "@/hooks/useCourseProgress";
+import { useAuth } from "@/context/AuthContext";
+import { useCourse } from "@/hooks/useCourses";
+import { useEnrolledCourse } from "@/hooks/useEnrolledCourses";
+import { getApiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
-
-const chartColors = ["#22C55E", "hsl(var(--border))"];
 
 const CoursePage = () => {
   const navigate = useNavigate();
-  const { courseId, lessonId } = useParams<{ courseId: string; lessonId?: string }>();
+  const queryClient = useQueryClient();
+  const { courseId = "" } = useParams<{ courseId: string }>();
+  const { isAuthenticated } = useAuth();
+  const courseQuery = useCourse(courseId);
+  const enrolledCourseQuery = useEnrolledCourse(courseId, isAuthenticated);
 
-  const course = useMemo(
-    () => courses.find((item) => item.id === courseId),
-    [courseId],
-  );
+  const course = enrolledCourseQuery.data ?? courseQuery.data;
+  const topics = useMemo(() => course?.topics ?? course?.lessons ?? [], [course]);
+  const enrollment = enrolledCourseQuery.data?.enrollment;
+  const firstTopicId = topics[0]?.id;
+  const continueTopicId = enrollment?.lastTopicId ?? firstTopicId;
 
-  const {
-    markComplete,
-    unmarkComplete,
-    isCompleted,
-    progressPercent,
-    completedCount,
-    lastLessonId,
-    setLastLesson,
-  } = useCourseProgress(course?.id ?? "");
+  const enrollMutation = useMutation({
+    mutationFn: () => enrollInCourse(courseId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["enrollments", "my-courses"] }),
+        queryClient.invalidateQueries({ queryKey: ["enrollments", "my-courses", courseId] }),
+      ]);
 
-  const resolvedLessonId = useMemo(() => {
-    if (!course) return 1;
-    const requestedId = Number(lessonId);
-    const fallbackId =
-      course.lessons.find((lesson) => lesson.id === lastLessonId)?.id ?? course.lessons[0]?.id ?? 1;
+      if (firstTopicId) {
+        navigate(`/course/${courseId}/lesson/${firstTopicId}`);
+      }
+    },
+  });
 
-    if (!Number.isNaN(requestedId) && course.lessons.some((lesson) => lesson.id === requestedId)) {
-      return requestedId;
-    }
-
-    return fallbackId;
-  }, [course, lastLessonId, lessonId]);
-
-  const currentLessonIndex = useMemo(() => {
-    if (!course) return 0;
-    return Math.max(
-      course.lessons.findIndex((lesson) => lesson.id === resolvedLessonId),
-      0,
-    );
-  }, [course, resolvedLessonId]);
-
-  const currentLesson = course?.lessons[currentLessonIndex];
-
-  useEffect(() => {
-    if (!course) return;
-    setLastLesson(resolvedLessonId);
-  }, [course, resolvedLessonId, setLastLesson]);
-
-  if (!course || !currentLesson) {
+  if (courseQuery.isLoading || (isAuthenticated && enrolledCourseQuery.isLoading && !course)) {
     return (
       <div className="min-h-screen bg-white dark:bg-[#0A0A0A]">
         <Navbar />
-        <div className="max-w-4xl mx-auto px-4 py-16">
-          <Card className="bg-gray-50 border border-gray-200 dark:bg-[#111111] dark:border-[#1E293B]">
-            <CardContent className="p-8 text-center space-y-4">
+        <div className="mx-auto max-w-5xl px-4 py-16">
+          <Card className="border border-gray-200 bg-gray-50 dark:border-[#1E293B] dark:bg-[#111111]">
+            <CardContent className="p-8 text-center text-sm text-gray-500 dark:text-[#94A3B8]">
+              Kurs yuklanmoqda...
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!course) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-[#0A0A0A]">
+        <Navbar />
+        <div className="mx-auto max-w-5xl px-4 py-16">
+          <Card className="border border-gray-200 bg-gray-50 dark:border-[#1E293B] dark:bg-[#111111]">
+            <CardContent className="space-y-4 p-8 text-center">
               <h1 className="text-3xl font-bold text-gray-900 dark:text-[#F8FAFC]">Kurs topilmadi</h1>
-              <p className="text-gray-500 dark:text-[#94A3B8]">So'ralgan kurs mavjud emas yoki darslar hali qo'shilmagan.</p>
               <Button asChild className="bg-[#22C55E] text-black hover:bg-[#16A34A]">
-                <Link to="/dashboard">Dashboard ga qaytish</Link>
+                <Link to="/courses">Kurslarga qaytish</Link>
               </Button>
             </CardContent>
           </Card>
@@ -78,209 +74,144 @@ const CoursePage = () => {
     );
   }
 
-  const chartData = [
-    { name: "completed", value: completedCount },
-    { name: "remaining", value: Math.max(course.totalLessons - completedCount, 0) },
-  ];
-
-  const goToLesson = (nextLessonId: number) => {
-    navigate(`/course/${course.id}/lesson/${nextLessonId}`);
-  };
-
-  const handleCompletionChange = (checked: boolean) => {
-    if (checked) {
-      markComplete(currentLesson.id);
-      return;
-    }
-
-    unmarkComplete(currentLesson.id);
-  };
-
-  const previousLesson = course.lessons[currentLessonIndex - 1];
-  const nextLesson = course.lessons[currentLessonIndex + 1];
-
   return (
     <div className="min-h-screen bg-white dark:bg-[#0A0A0A]">
       <Navbar />
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-3">
-            <Button
-              variant="ghost"
-              className="w-fit px-0 text-gray-500 hover:bg-transparent hover:text-gray-900 dark:text-[#94A3B8] dark:hover:text-[#F8FAFC]"
-              onClick={() => navigate("/dashboard")}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Dashboard ga qaytish
-            </Button>
-            <div className="flex items-center gap-3">
-              <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-2xl", course.gradient)}>
-                {course.image ? (
-                  <img
-                    src={course.image}
-                    alt={course.title}
-                    className="h-8 w-8 object-contain"
-                  />
-                ) : (
-                  course.icon
-                )}
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+        <Button
+          variant="ghost"
+          className="w-fit px-0 text-gray-500 hover:bg-transparent hover:text-gray-900 dark:text-[#94A3B8] dark:hover:text-[#F8FAFC]"
+          onClick={() => navigate("/courses")}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Kurslarga qaytish
+        </Button>
+
+        <Card className="overflow-hidden border border-gray-200 bg-gray-50 dark:border-[#1E293B] dark:bg-[#111111]">
+          <div className={cn("flex min-h-[220px] items-center justify-center bg-gradient-to-br p-8", course.gradient)}>
+            {course.image ? (
+              <img src={course.image} alt={course.title} className="h-32 w-32 object-contain" />
+            ) : (
+              <span className="text-7xl">{course.icon ?? "📘"}</span>
+            )}
+          </div>
+
+          <CardContent className="space-y-6 p-6 sm:p-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge className="border border-[#22C55E] bg-[#22C55E]/10 text-[#22C55E]">{course.level}</Badge>
+                  <Badge variant="outline">{course.duration}</Badge>
+                </div>
+                <h1 className="text-4xl font-bold text-gray-900 dark:text-[#F8FAFC]">{course.title}</h1>
+                <p className="max-w-3xl text-base leading-7 text-gray-500 dark:text-[#94A3B8]">{course.description}</p>
               </div>
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-[#F8FAFC]">{course.title}</h1>
-                <p className="text-sm sm:text-base text-gray-500 dark:text-[#94A3B8]">{course.description}</p>
+
+              {course.isEnrolled ? (
+                <div className="space-y-3 lg:min-w-[240px]">
+                  <div className="rounded-2xl border border-[#22C55E]/30 bg-[#22C55E]/10 p-4">
+                    <p className="text-sm text-[#22C55E]">Progress</p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-[#F8FAFC]">
+                      {enrollment?.progressPercent ?? 0}%
+                    </p>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-[#94A3B8]">
+                      {enrollment?.completedTopicsCount ?? 0}/{course.totalLessons} dars tugatilgan
+                    </p>
+                  </div>
+
+                  <Button
+                    className="w-full bg-[#22C55E] font-semibold text-black hover:bg-[#16A34A]"
+                    onClick={() =>
+                      continueTopicId
+                        ? navigate(`/course/${course.id}/lesson/${continueTopicId}`)
+                        : navigate(`/course/${course.id}`)
+                    }
+                  >
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                    Davom ettirish
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3 lg:min-w-[240px]">
+                  <Button
+                    className="w-full bg-[#22C55E] font-semibold text-black hover:bg-[#16A34A]"
+                    onClick={() => enrollMutation.mutate()}
+                    disabled={enrollMutation.isPending || !isAuthenticated}
+                  >
+                    {enrollMutation.isPending ? "Enroll qilinmoqda..." : "Kursga yozilish"}
+                  </Button>
+                  {!isAuthenticated ? (
+                    <p className="text-sm text-gray-500 dark:text-[#94A3B8]">Yozilish uchun avval tizimga kiring.</p>
+                  ) : null}
+                  {enrollMutation.isError ? (
+                    <p className="text-sm text-red-500">
+                      {getApiErrorMessage(enrollMutation.error, "Kursga yozilishda xato yuz berdi.")}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Card className="border border-gray-200 bg-white dark:border-[#1E293B] dark:bg-[#0D0D0D]">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <BookOpen className="h-5 w-5 text-[#22C55E]" />
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-[#94A3B8]">Darslar</p>
+                    <p className="font-semibold text-gray-900 dark:text-[#F8FAFC]">{course.totalLessons} ta</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-gray-200 bg-white dark:border-[#1E293B] dark:bg-[#0D0D0D]">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <Clock3 className="h-5 w-5 text-[#22C55E]" />
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-[#94A3B8]">Davomiylik</p>
+                    <p className="font-semibold text-gray-900 dark:text-[#F8FAFC]">{course.duration}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border border-gray-200 bg-white dark:border-[#1E293B] dark:bg-[#0D0D0D]">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <CheckCircle2 className="h-5 w-5 text-[#22C55E]" />
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-[#94A3B8]">Holat</p>
+                    <p className="font-semibold text-gray-900 dark:text-[#F8FAFC]">
+                      {course.isEnrolled ? "Enroll qilingan" : "Boshlanmagan"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-[#F8FAFC]">Mavzular</h2>
+              <div className="space-y-3">
+                {topics.map((topic) => (
+                  <Card key={topic.id} className="border border-gray-200 bg-white dark:border-[#1E293B] dark:bg-[#0D0D0D]">
+                    <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-[#22C55E]">Dars #{topic.lessonNumber}</p>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-[#F8FAFC]">{topic.title}</h3>
+                        <p className="text-sm text-gray-500 dark:text-[#94A3B8]">{topic.duration}</p>
+                      </div>
+
+                      {course.isEnrolled ? (
+                        <Button
+                          variant="outline"
+                          className="border-[#22C55E] text-[#22C55E] hover:bg-[#22C55E]/10"
+                          onClick={() => navigate(`/course/${course.id}/lesson/${topic.id}`)}
+                        >
+                          Ochish
+                        </Button>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
-          </div>
-          <Badge className="w-fit border border-[#22C55E] bg-[#22C55E]/10 px-4 py-2 text-[#22C55E]">
-            {progressPercent}% tugatildi
-          </Badge>
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)] gap-6">
-          <div className="space-y-6">
-            <Card className="overflow-hidden bg-gray-50 border border-gray-200 dark:bg-[#111111] dark:border-[#1E293B]">
-              <CardContent className="p-4 sm:p-6">
-                <iframe
-                  src={`https://www.youtube.com/embed/${currentLesson.videoId}?cc_load_policy=1&cc_lang_pref=uz&rel=0`}
-                  title={currentLesson.title}
-                  className="w-full aspect-video rounded-xl border border-gray-200 dark:border-[#1E293B]"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gray-50 border border-gray-200 dark:bg-[#111111] dark:border-[#1E293B]">
-              <CardContent className="p-6 space-y-5">
-                <Badge variant="outline" className="border-gray-200 text-gray-500 dark:border-[#1E293B] dark:text-[#94A3B8]">
-                  Dars #{currentLesson.id}
-                </Badge>
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-semibold text-gray-900 dark:text-[#F8FAFC]">{currentLesson.title}</h2>
-                  <p className="flex items-center gap-2 text-sm text-gray-500 dark:text-[#94A3B8]">
-                    <Clock3 className="h-4 w-4 text-[#22C55E]" />
-                    {currentLesson.duration}
-                  </p>
-                  <p className="text-base leading-7 text-gray-500 dark:text-[#94A3B8]">
-                    {course.title} kursining ushbu darsida {currentLesson.title.toLowerCase()} mavzusini oson va amaliy tarzda o'rganasiz.
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 dark:border-[#1E293B] dark:bg-[#0D0D0D] dark:text-[#F8FAFC]">
-                    <input
-                      type="checkbox"
-                      checked={isCompleted(currentLesson.id)}
-                      onChange={(event) => handleCompletionChange(event.target.checked)}
-                      className="h-4 w-4 rounded border-gray-200 bg-transparent accent-[#22C55E] dark:border-[#1E293B]"
-                    />
-                    <span className="text-sm sm:text-base">Bu darsni tugatdim</span>
-                  </label>
-
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button
-                      variant="outline"
-                      className="border border-[#22C55E] bg-transparent text-[#22C55E] hover:bg-[#22C55E]/10"
-                      onClick={() => previousLesson && goToLesson(previousLesson.id)}
-                      disabled={!previousLesson}
-                    >
-                      ← Oldingi
-                    </Button>
-                    <Button
-                      className="bg-[#22C55E] text-black font-semibold hover:bg-[#16A34A]"
-                      onClick={() => nextLesson && goToLesson(nextLesson.id)}
-                      disabled={!nextLesson}
-                    >
-                      Keyingi →
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="bg-gray-50 border border-gray-200 dark:bg-[#111111] dark:border-[#1E293B]">
-            <CardContent className="p-6 space-y-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-2xl font-semibold text-gray-900 dark:text-[#F8FAFC]">{course.title}</h3>
-                  <p className="text-sm text-gray-500 dark:text-[#94A3B8]">{completedCount}/{course.totalLessons} dars</p>
-                </div>
-                <Badge className="border border-[#22C55E] bg-[#22C55E]/10 text-[#22C55E]">
-                  {course.level}
-                </Badge>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-[#1E293B] dark:bg-[#0D0D0D]">
-                <div className="mx-auto h-[140px] w-full max-w-[160px] relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        dataKey="value"
-                        innerRadius={40}
-                        outerRadius={55}
-                        startAngle={90}
-                        endAngle={-270}
-                        stroke="none"
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={entry.name} fill={chartColors[index]} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl font-bold text-gray-900 dark:text-[#F8FAFC]">{progressPercent}%</span>
-                    <span className="text-xs text-gray-500 dark:text-[#94A3B8]">progress</span>
-                  </div>
-                </div>
-                <p className="mt-2 text-center text-sm text-gray-500 dark:text-[#94A3B8]">{completedCount} ta dars tugatildi</p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-                  {course.lessons.map((lesson) => {
-                    const completed = isCompleted(lesson.id);
-                    const current = lesson.id === currentLesson.id;
-
-                    return (
-                      <button
-                        key={lesson.id}
-                        type="button"
-                        onClick={() => goToLesson(lesson.id)}
-                        className={cn(
-                          "w-full rounded-xl border-l-2 border-transparent px-4 py-3 text-left transition-all",
-                          completed && "bg-[#22C55E]/10",
-                          current && "border-[#22C55E] bg-[#22C55E]/20",
-                          !completed && !current && "hover:bg-gray-100 dark:hover:bg-[#0D0D0D]",
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={cn(
-                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-                              completed ? "bg-[#22C55E] text-black" : "bg-gray-200 text-gray-500 dark:bg-[#1E293B] dark:text-[#94A3B8]",
-                            )}
-                          >
-                            {lesson.id}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className={cn("truncate text-sm font-medium", current ? "text-gray-900 dark:text-[#F8FAFC]" : "text-gray-500 dark:text-[#94A3B8]")}>
-                              {lesson.title}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-[#94A3B8]">{lesson.duration}</p>
-                          </div>
-                          {completed ? <CheckCircle2 className="h-4 w-4 text-[#22C55E]" /> : null}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
