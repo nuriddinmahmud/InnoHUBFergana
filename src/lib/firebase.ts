@@ -15,11 +15,12 @@ let auth: Auth | null = null;
 let googleProvider: GoogleAuthProvider | null = null;
 let firebaseInitializationError: Error | null = null;
 
-const getFirebaseConfig = (): FirebaseOptions => {
+const getFirebaseConfig = (): FirebaseOptions | null => {
   const missingFirebaseEnv = requiredFirebaseEnv.filter((key) => !import.meta.env[key]?.trim());
 
   if (missingFirebaseEnv.length > 0) {
-    throw new Error(`Missing Firebase environment variables: ${missingFirebaseEnv.join(", ")}`);
+    console.warn("Firebase config missing, auth disabled");
+    return null;
   }
 
   return {
@@ -33,12 +34,15 @@ const getFirebaseConfig = (): FirebaseOptions => {
 };
 
 try {
-  firebaseApp = getApps().length > 0 ? getApp() : initializeApp(getFirebaseConfig());
-  auth = getAuth(firebaseApp);
-  googleProvider = new GoogleAuthProvider();
-  googleProvider.setCustomParameters({
-    prompt: "select_account",
-  });
+  const config = getFirebaseConfig();
+  if (config) {
+    firebaseApp = getApps().length > 0 ? getApp() : initializeApp(config);
+    auth = getAuth(firebaseApp);
+    googleProvider = new GoogleAuthProvider();
+    googleProvider.setCustomParameters({
+      prompt: "select_account",
+    });
+  }
 } catch (error) {
   firebaseInitializationError = error instanceof Error ? error : new Error("Firebase initialization failed.");
   console.warn("Firebase initialization failed. Google authentication is disabled.", error);

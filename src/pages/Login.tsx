@@ -71,6 +71,22 @@ const Login = () => {
               <p className="mt-2 text-[15px] text-[#94A3B8]">Hisobingizga kiring</p>
             </div>
 
+            <div className="mb-8 space-y-4">
+              <a
+                href={import.meta.env.VITE_GOOGLE_AUTH_URL}
+                className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#1E293B] bg-[#0A0A0A] font-semibold text-[#F8FAFC] transition-colors hover:border-[#22C55E] hover:bg-[#111111]"
+              >
+                <GoogleIcon className="h-5 w-5" />
+                Google orqali kirish
+              </a>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-[#1E293B]" />
+                <span className="text-xs uppercase tracking-[0.24em] text-[#94A3B8]">yoki</span>
+                <div className="h-px flex-1 bg-[#1E293B]" />
+              </div>
+            </div>
+
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm text-[#94A3B8]">Email</label>
@@ -137,5 +153,26 @@ const Login = () => {
     </div>
   );
 };
+
+const GoogleIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" className={className}>
+    <path
+      d="M21.805 10.023H12.25v3.955h5.512c-.236 1.274-.96 2.352-2.006 3.076v2.551h3.244c1.899-1.748 2.995-4.322 2.995-7.38 0-.733-.066-1.437-.19-2.202Z"
+      fill="#4285F4"
+    />
+    <path
+      d="M12.25 22c2.734 0 5.027-.907 6.703-2.446l-3.244-2.551c-.902.605-2.057.962-3.459.962-2.643 0-4.883-1.783-5.682-4.181H3.217v2.632A10.117 10.117 0 0 0 12.25 22Z"
+      fill="#34A853"
+    />
+    <path
+      d="M6.568 13.784A6.088 6.088 0 0 1 6.25 12c0-.619.111-1.219.318-1.784V7.584H3.217A10.118 10.118 0 0 0 2.125 12c0 1.634.391 3.182 1.092 4.416l3.35-2.632Z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M12.25 6.036c1.486 0 2.82.511 3.869 1.512l2.902-2.901C17.273 3.018 14.98 2 12.25 2a10.117 10.117 0 0 0-9.033 5.584l3.35 2.632c.799-2.398 3.04-4.18 5.683-4.18Z"
+      fill="#EA4335"
+    />
+  </svg>
+);
 
 export default Login;

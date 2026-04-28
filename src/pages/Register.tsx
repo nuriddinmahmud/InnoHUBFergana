@@ -90,9 +90,7 @@ const Register = () => {
     };
   }, [isAuthenticated, loading, loginWithFirebase, navigate]);
 
-  if (!loading && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+
 
   const handleRegister = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -199,6 +197,10 @@ const Register = () => {
   };
 
   const previewImage = formData.avatarUrl.trim() || localPreviewUrl;
+
+  if (!loading && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] px-4 py-8">

@@ -1,19 +1,8 @@
 import axios from "axios";
 import { clearAuth, getAccessToken } from "@/lib/auth";
 
-function resolveApiBaseUrl() {
-  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
-
-  if (!configuredUrl) {
-    return "http://localhost:3000/api";
-  }
-
-  const normalizedUrl = configuredUrl.replace(/\/+$/, "");
-  return normalizedUrl.endsWith("/api") ? normalizedUrl : `${normalizedUrl}/api`;
-}
-
 const api = axios.create({
-  baseURL: resolveApiBaseUrl(),
+  baseURL: import.meta.env.VITE_API_URL,
 });
 
 api.interceptors.request.use((config) => {

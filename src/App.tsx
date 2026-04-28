@@ -10,6 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 const Index = lazy(() => import("./pages/Index"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
+const AuthSuccess = lazy(() => import("./pages/AuthSuccess"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const CoursePage = lazy(() => import("./pages/CoursePage"));
 const Lesson = lazy(() => import("./pages/Lesson"));
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/auth/success" element={<AuthSuccess />} />
             <Route path="/courses" element={<Courses />} />
             <Route
               path="/dashboard"
