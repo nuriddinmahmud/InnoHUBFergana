@@ -1,23 +1,47 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, ShieldBan, ShieldCheck, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { deleteAdminUser, updateAdminUserStatus } from "@/api/admin";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { useAdminUsers } from "@/hooks/useAdminData";
+import { getApiErrorMessage } from "@/lib/api";
 import type { AdminUser } from "@/types/api";
 
 const inputClassName =
   "w-full rounded-xl border border-[#1E293B] bg-[#0A0A0A] px-4 py-3 text-sm text-[#F8FAFC] outline-none transition placeholder:text-[#94A3B8] focus:border-[#22C55E]";
 
 const AdminUsers = () => {
+  const queryClient = useQueryClient();
   const usersQuery = useAdminUsers();
-  const [users, setUsers] = useState<AdminUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    if (usersQuery.data) {
-      setUsers(usersQuery.data);
-    }
-  }, [usersQuery.data]);
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({ userId, nextStatus }: { userId: string; nextStatus: AdminUser["status"] }) =>
+      updateAdminUserStatus(userId, nextStatus),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "stats"] });
+      toast.success("Foydalanuvchi holati yangilandi.");
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Foydalanuvchi holatini yangilab bo'lmadi."));
+    },
+  });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: (userId: string) => deleteAdminUser(userId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin", "stats"] });
+      toast.success("Foydalanuvchi o'chirildi.");
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Foydalanuvchini o'chirib bo'lmadi."));
+    },
+  });
+
+  const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
   const filteredUsers = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
@@ -30,18 +54,13 @@ const AdminUsers = () => {
     );
   }, [searchQuery, users]);
 
-  const toggleStatus = (userId: string) => {
-    setUsers((current) =>
-      current.map((user) =>
-        user.id === userId
-          ? { ...user, status: user.status === "Faol" ? "Bloklangan" : "Faol" }
-          : user,
-      ),
-    );
+  const handleToggleStatus = (user: AdminUser) => {
+    const nextStatus: AdminUser["status"] = user.status === "Faol" ? "Bloklangan" : "Faol";
+    toggleStatusMutation.mutate({ userId: user.id, nextStatus });
   };
 
-  const removeUser = (userId: string) => {
-    setUsers((current) => current.filter((user) => user.id !== userId));
+  const handleDeleteUser = (userId: string) => {
+    deleteUserMutation.mutate(userId);
   };
 
   return (
@@ -54,7 +73,7 @@ const AdminUsers = () => {
             <p className="text-sm text-[#22C55E]">Foydalanuvchilar</p>
             <h1 className="mt-2 text-3xl font-bold">Foydalanuvchilar boshqaruvi</h1>
             <p className="mt-2 text-sm text-[#94A3B8]">
-              Foydalanuvchilarni qidiring, holatini almashtiring va lokal ro&apos;yxatni boshqaring.
+              Foydalanuvchilarni qidiring, holatini almashtiring va serverdagi real holatni boshqaring.
             </p>
           </div>
 
@@ -130,8 +149,9 @@ const AdminUsers = () => {
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => toggleStatus(user.id)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-[#1E293B] bg-[#0A0A0A] px-3 py-2 text-xs font-medium text-[#94A3B8] transition hover:border-[#22C55E] hover:text-[#22C55E]"
+                                onClick={() => handleToggleStatus(user)}
+                                disabled={toggleStatusMutation.isPending}
+                                className="inline-flex items-center gap-2 rounded-xl border border-[#1E293B] bg-[#0A0A0A] px-3 py-2 text-xs font-medium text-[#94A3B8] transition hover:border-[#22C55E] hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-70"
                               >
                                 {user.status === "Faol" ? (
                                   <ShieldBan className="h-4 w-4" />
@@ -142,8 +162,9 @@ const AdminUsers = () => {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => removeUser(user.id)}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0A0A0A] text-[#94A3B8] transition hover:border-[#ef4444] hover:text-[#ef4444]"
+                                onClick={() => handleDeleteUser(user.id)}
+                                disabled={deleteUserMutation.isPending}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0A0A0A] text-[#94A3B8] transition hover:border-[#ef4444] hover:text-[#ef4444] disabled:cursor-not-allowed disabled:opacity-70"
                                 title="O'chirish"
                               >
                                 <Trash2 className="h-4 w-4" />

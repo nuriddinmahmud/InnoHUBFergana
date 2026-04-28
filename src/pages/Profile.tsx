@@ -1,17 +1,92 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { toast } from "sonner";
 import Navbar from "@/components/landing/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, Download, Lock } from "lucide-react";
+import { Camera, Download, LoaderCircle, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { getCurrentUserProfile } from "@/api/auth";
+import { getCurrentUserProfile, updateCurrentUserProfile } from "@/api/auth";
 import { getAvatarSrc, handleAvatarError } from "@/lib/auth";
+import { getApiErrorMessage } from "@/lib/api";
+
+const MAX_AVATAR_SIZE = 512;
+const AVATAR_QUALITY = 0.82;
+
+async function readBlobAsDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Rasmni o'qib bo'lmadi."));
+    };
+    reader.onerror = () => reject(new Error("Rasmni o'qib bo'lmadi."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function compressImageToBase64(file: File) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Faqat rasm faylini tanlang.");
+  }
+
+  const imageUrl = URL.createObjectURL(file);
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Rasmni yuklab bo'lmadi."));
+      img.src = imageUrl;
+    });
+
+    const scale = Math.min(1, MAX_AVATAR_SIZE / image.width, MAX_AVATAR_SIZE / image.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return readBlobAsDataUrl(file);
+    }
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const compressedBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+            return;
+          }
+
+          reject(new Error("Rasmni siqib bo'lmadi."));
+        },
+        "image/jpeg",
+        AVATAR_QUALITY,
+      );
+    });
+
+    return readBlobAsDataUrl(compressedBlob);
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
 
 const Profile = () => {
   const { user, refreshProfile } = useAuth();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState("");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -35,9 +110,10 @@ const Profile = () => {
           lastName: rest.join(" "),
           email: profile.email,
         });
+        setAvatarPreview(getAvatarSrc(profile.avatar, profile.avatarUrl));
       } catch (err) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : "Profil ma'lumotlarini yuklab bo'lmadi");
+        setError(getApiErrorMessage(err, "Profil ma'lumotlarini yuklab bo'lmadi."));
       } finally {
         if (mounted) {
           setLoading(false);
@@ -52,11 +128,78 @@ const Profile = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    setAvatarPreview(getAvatarSrc(user.avatar, user.avatarUrl));
+  }, [user]);
+
   const handleSave = async () => {
-    setSaved(true);
-    await refreshProfile();
-    setTimeout(() => setSaved(false), 2000);
+    const firstName = formData.firstName.trim();
+    const lastName = formData.lastName.trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+    if (!fullName) {
+      toast.error("Ism yoki familiyani kiriting.");
+      return;
+    }
+
+    setSavingProfile(true);
+    setError("");
+
+    try {
+      await updateCurrentUserProfile({
+        firstName,
+        lastName,
+        fullName,
+        name: fullName,
+        email: formData.email.trim(),
+      });
+      await refreshProfile();
+      toast.success("Profil muvaffaqiyatli yangilandi.");
+    } catch (err) {
+      const message = getApiErrorMessage(err, "Profilni saqlashda xato yuz berdi.");
+      setError(message);
+      toast.error(message);
+    } finally {
+      setSavingProfile(false);
+    }
   };
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setError("");
+
+    try {
+      const avatarBase64 = await compressImageToBase64(file);
+      setAvatarPreview(avatarBase64);
+      await updateCurrentUserProfile({
+        avatar: avatarBase64,
+        avatarUrl: avatarBase64,
+        photoURL: avatarBase64,
+      });
+      await refreshProfile();
+      toast.success("Profil rasmi yangilandi.");
+    } catch (err) {
+      const message = getApiErrorMessage(err, "Profil rasmini yuklashda xato yuz berdi.");
+      setError(message);
+      toast.error(message);
+      setAvatarPreview(user ? getAvatarSrc(user.avatar, user.avatarUrl) : "");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const avatarSrc = avatarPreview || (user ? getAvatarSrc(user.avatar, user.avatarUrl) : "");
 
   return (
     <div className="min-h-screen bg-background">
@@ -64,10 +207,10 @@ const Profile = () => {
       <div className="mx-auto max-w-[800px] px-8 py-12">
         <div className="mb-10 flex flex-col items-center">
           <div className="relative mb-4">
-            {user?.avatar || user?.avatarUrl ? (
+            {avatarSrc ? (
               <img
-                src={getAvatarSrc(user.avatar, user.avatarUrl)}
-                alt={user.name}
+                src={avatarSrc}
+                alt={user?.name ?? "Foydalanuvchi"}
                 onError={handleAvatarError}
                 className="h-[120px] w-[120px] rounded-full border-2 border-primary object-cover"
               />
@@ -76,12 +219,21 @@ const Profile = () => {
                 {user?.name?.charAt(0).toUpperCase() ?? "I"}
               </div>
             )}
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
             <button
               type="button"
-              className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground"
+              className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:cursor-not-allowed disabled:opacity-70"
               title="Change profile picture"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar}
             >
-              <Camera className="h-4 w-4" />
+              {uploadingAvatar ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
             </button>
           </div>
           <h2 className="text-[28px] font-bold">{user?.name ?? "Foydalanuvchi"}</h2>
@@ -103,11 +255,6 @@ const Profile = () => {
               {error}
             </div>
           ) : null}
-          {saved ? (
-            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
-              Profil muvaffaqiyatli yangilandi
-            </div>
-          ) : null}
 
           <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
@@ -116,6 +263,7 @@ const Profile = () => {
                 value={formData.firstName}
                 onChange={(event) => setFormData({ ...formData, firstName: event.target.value })}
                 className="bg-card"
+                disabled={loading || savingProfile}
               />
             </div>
             <div>
@@ -124,6 +272,7 @@ const Profile = () => {
                 value={formData.lastName}
                 onChange={(event) => setFormData({ ...formData, lastName: event.target.value })}
                 className="bg-card"
+                disabled={loading || savingProfile}
               />
             </div>
           </div>
@@ -135,14 +284,22 @@ const Profile = () => {
                 value={formData.email}
                 onChange={(event) => setFormData({ ...formData, email: event.target.value })}
                 className="bg-card pr-10"
+                disabled={loading || savingProfile}
               />
               <Lock className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             </div>
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleSave} title="Profilni saqlash">
-              Saqlash
+            <Button onClick={handleSave} title="Profilni saqlash" disabled={loading || savingProfile || uploadingAvatar}>
+              {savingProfile ? (
+                <>
+                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  Saqlanmoqda...
+                </>
+              ) : (
+                "Saqlash"
+              )}
             </Button>
           </div>
         </div>

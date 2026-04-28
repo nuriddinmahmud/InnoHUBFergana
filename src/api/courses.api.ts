@@ -1,4 +1,5 @@
 import api from "./client";
+import { resolveCourseGradientClass } from "@/lib/course-gradient";
 import type { CourseDetail, CourseSummary, CreateCoursePayload, TopicSummary } from "@/types/api";
 
 function extractCourseItems(payload: unknown): Record<string, unknown>[] {
@@ -86,6 +87,10 @@ export function normalizeCourse(course: Record<string, unknown>): CourseSummary 
       : typeof course.gradient_to === "string"
         ? course.gradient_to
         : "";
+  const gradient =
+    typeof course.gradient === "string"
+      ? course.gradient
+      : undefined;
 
   return {
     id: String(course.id ?? course.slug ?? ""),
@@ -100,10 +105,11 @@ export function normalizeCourse(course: Record<string, unknown>): CourseSummary 
           : typeof course.image_url === "string"
             ? course.image_url
             : undefined,
-    gradient:
-      typeof course.gradient === "string"
-        ? course.gradient
-        : [gradientFrom && `from-[${gradientFrom}]`, gradientTo && `to-[${gradientTo}]`].filter(Boolean).join(" "),
+    gradient: resolveCourseGradientClass({
+      gradient,
+      gradientFrom,
+      gradientTo,
+    }),
     totalLessons: Number(course.totalLessons ?? course.total_lessons ?? course.topicsCount ?? course.topicCount ?? 0),
     level: mapBackendLevelToUi(typeof course.level === "string" ? course.level : undefined),
     duration: String(course.duration ?? course.durationLabel ?? course.duration_label ?? ""),

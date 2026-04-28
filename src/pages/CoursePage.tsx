@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, CheckCircle2, Clock3, PlayCircle } from "lucide-react";
 import Navbar from "@/components/landing/Navbar";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 const CoursePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { courseId = "" } = useParams<{ courseId: string }>();
   const { isAuthenticated } = useAuth();
@@ -24,6 +25,7 @@ const CoursePage = () => {
   const course = enrolledCourseQuery.data ?? courseQuery.data;
   const topics = useMemo(() => course?.topics ?? course?.lessons ?? [], [course]);
   const enrollment = enrolledCourseQuery.data?.enrollment;
+  const isEnrolled = Boolean(isAuthenticated && (enrollment || enrolledCourseQuery.data?.isEnrolled || course?.isEnrolled));
   const firstTopicId = topics[0]?.id;
   const continueTopicId = enrollment?.lastTopicId ?? firstTopicId;
 
@@ -31,6 +33,8 @@ const CoursePage = () => {
     mutationFn: () => enrollInCourse(courseId),
     onSuccess: async () => {
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["courses"] }),
+        queryClient.invalidateQueries({ queryKey: ["courses", courseId] }),
         queryClient.invalidateQueries({ queryKey: ["enrollments", "my-courses"] }),
         queryClient.invalidateQueries({ queryKey: ["enrollments", "my-courses", courseId] }),
       ]);
@@ -107,7 +111,7 @@ const CoursePage = () => {
                 <p className="max-w-3xl text-base leading-7 text-gray-500 dark:text-[#94A3B8]">{course.description}</p>
               </div>
 
-              {course.isEnrolled ? (
+              {isEnrolled ? (
                 <div className="space-y-3 lg:min-w-[240px]">
                   <div className="rounded-2xl border border-[#22C55E]/30 bg-[#22C55E]/10 p-4">
                     <p className="text-sm text-[#22C55E]">Progress</p>
@@ -126,23 +130,33 @@ const CoursePage = () => {
                         ? navigate(`/course/${course.id}/lesson/${continueTopicId}`)
                         : navigate(`/course/${course.id}`)
                     }
+                    disabled={!continueTopicId}
                   >
                     <PlayCircle className="mr-2 h-4 w-4" />
-                    Davom ettirish
+                    Continue Learning
                   </Button>
+                </div>
+              ) : !isAuthenticated ? (
+                <div className="space-y-3 lg:min-w-[240px]">
+                  <Button
+                    className="w-full bg-[#22C55E] font-semibold text-black hover:bg-[#16A34A]"
+                    onClick={() => navigate("/login", { state: { from: location } })}
+                  >
+                    Log in to Enroll
+                  </Button>
+                  <p className="text-sm text-gray-500 dark:text-[#94A3B8]">
+                    Kursga yozilish va darslarni davom ettirish uchun tizimga kiring.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3 lg:min-w-[240px]">
                   <Button
                     className="w-full bg-[#22C55E] font-semibold text-black hover:bg-[#16A34A]"
                     onClick={() => enrollMutation.mutate()}
-                    disabled={enrollMutation.isPending || !isAuthenticated}
+                    disabled={enrollMutation.isPending}
                   >
-                    {enrollMutation.isPending ? "Enroll qilinmoqda..." : "Kursga yozilish"}
+                    {enrollMutation.isPending ? "Enroll qilinmoqda..." : "Enroll Now"}
                   </Button>
-                  {!isAuthenticated ? (
-                    <p className="text-sm text-gray-500 dark:text-[#94A3B8]">Yozilish uchun avval tizimga kiring.</p>
-                  ) : null}
                   {enrollMutation.isError ? (
                     <p className="text-sm text-red-500">
                       {getApiErrorMessage(enrollMutation.error, "Kursga yozilishda xato yuz berdi.")}
@@ -177,7 +191,7 @@ const CoursePage = () => {
                   <div>
                     <p className="text-sm text-gray-500 dark:text-[#94A3B8]">Holat</p>
                     <p className="font-semibold text-gray-900 dark:text-[#F8FAFC]">
-                      {course.isEnrolled ? "Enroll qilingan" : "Boshlanmagan"}
+                      {isEnrolled ? "Enroll qilingan" : isAuthenticated ? "Boshlanmagan" : "Login kerak"}
                     </p>
                   </div>
                 </CardContent>
@@ -196,7 +210,7 @@ const CoursePage = () => {
                         <p className="text-sm text-gray-500 dark:text-[#94A3B8]">{topic.duration}</p>
                       </div>
 
-                      {course.isEnrolled ? (
+                      {isEnrolled ? (
                         <Button
                           variant="outline"
                           className="border-[#22C55E] text-[#22C55E] hover:bg-[#22C55E]/10"

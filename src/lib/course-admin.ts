@@ -4,6 +4,7 @@ import type {
   CourseFormValues,
   CourseLevel,
   CreateCoursePayload,
+  UpdateCoursePayload,
 } from "@/types/api";
 
 export const COURSE_DEFAULT_ICON = "book-open";
@@ -94,6 +95,28 @@ export function buildCreateCoursePayload(form: CourseFormValues, createdBy: stri
     status: mapUiStatusToBackend(form.status),
     sortOrder: COURSE_DEFAULT_SORT_ORDER,
     createdBy,
+  };
+
+  const imageUrl = form.imageUrl.trim();
+  if (imageUrl) {
+    payload.imageUrl = imageUrl;
+  }
+
+  return payload;
+}
+
+export function buildUpdateCoursePayload(form: CourseFormValues): UpdateCoursePayload {
+  const title = form.title.trim();
+  const payload: UpdateCoursePayload = {
+    title,
+    slug: slugifyCourseTitle(title),
+    description: form.description.trim(),
+    icon: COURSE_DEFAULT_ICON,
+    gradientFrom: COURSE_DEFAULT_GRADIENT_FROM,
+    gradientTo: COURSE_DEFAULT_GRADIENT_TO,
+    level: mapUiLevelToBackend(form.level),
+    durationLabel: form.durationLabel.trim(),
+    status: mapUiStatusToBackend(form.status),
   };
 
   const imageUrl = form.imageUrl.trim();

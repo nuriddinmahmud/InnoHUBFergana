@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import type { UserRole } from "@/types/api";
 
@@ -19,6 +19,7 @@ const canAccessRole = (role: UserRole | undefined, requiredRole?: UserRole) => {
 
 const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { user, loading, isAuthenticated } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -29,7 +30,7 @@ const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   }
 
   if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (!canAccessRole(user.role, requiredRole)) {

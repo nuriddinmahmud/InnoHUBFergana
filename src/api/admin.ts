@@ -1,5 +1,6 @@
 import api from "./client";
 import { normalizeTopic } from "./courses.api";
+import { resolveCourseGradientClass } from "@/lib/course-gradient";
 import type {
   AdminDashboardStats,
   AdminUser,
@@ -10,6 +11,7 @@ import type {
   CreateCoursePayload,
   TopicMutationPayload,
   TopicSummary,
+  UpdateCoursePayload,
 } from "@/types/api";
 
 function asRecord(payload: unknown): Record<string, unknown> | null {
@@ -111,7 +113,34 @@ function mapAdminUserStatus(status: unknown): AdminUser["status"] {
   }
 }
 
+function mapAdminUserStatusToBackend(status: AdminUser["status"]) {
+  switch (status) {
+    case "Bloklangan":
+      return "blocked";
+    case "Kutilmoqda":
+      return "pending";
+    case "Tekshirilmoqda":
+      return "reviewing";
+    case "Faol":
+    default:
+      return "active";
+  }
+}
+
 function normalizeCourseSummary(course: Record<string, unknown>): CourseSummary {
+  const gradientFrom =
+    typeof course.gradientFrom === "string"
+      ? course.gradientFrom
+      : typeof course.gradient_from === "string"
+        ? course.gradient_from
+        : "";
+  const gradientTo =
+    typeof course.gradientTo === "string"
+      ? course.gradientTo
+      : typeof course.gradient_to === "string"
+        ? course.gradient_to
+        : "";
+
   return {
     id: String(course.id ?? ""),
     title: String(course.title ?? course.name ?? ""),
@@ -125,7 +154,11 @@ function normalizeCourseSummary(course: Record<string, unknown>): CourseSummary 
           : typeof course.image_url === "string"
             ? course.image_url
           : undefined,
-    gradient: typeof course.gradient === "string" ? course.gradient : undefined,
+    gradient: resolveCourseGradientClass({
+      gradient: typeof course.gradient === "string" ? course.gradient : undefined,
+      gradientFrom,
+      gradientTo,
+    }),
     totalLessons: Number(course.totalLessons ?? course.total_lessons ?? course.topicCount ?? course.topicsCount ?? 0),
     level: mapBackendLevelToUi(typeof course.level === "string" ? course.level : undefined),
     duration: String(course.duration ?? course.durationLabel ?? course.duration_label ?? ""),
@@ -245,6 +278,19 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
   return extractItems<Record<string, unknown>>(data, ["users"]).map(normalizeAdminUser);
 }
 
+export async function updateAdminUserStatus(userId: string, status: AdminUser["status"]): Promise<AdminUser> {
+  const { data } = await api.patch<Record<string, unknown>>(`/admin/users/${userId}`, {
+    status: mapAdminUserStatusToBackend(status),
+  });
+  const record = asRecord(data) ?? {};
+  const normalizedPayload = asRecord(record.user) ?? record;
+  return normalizeAdminUser(normalizedPayload);
+}
+
+export async function deleteAdminUser(userId: string): Promise<void> {
+  await api.delete(`/admin/users/${userId}`);
+}
+
 export async function fetchAdminCourses(): Promise<CourseSummary[]> {
   const { data } = await api.get<CourseSummary[] | { items?: CourseSummary[]; data?: CourseSummary[]; courses?: CourseSummary[] }>(
     "/courses",
@@ -263,6 +309,15 @@ export async function fetchAdminTopics(courseId?: string): Promise<TopicSummary[
 export async function createCourse(payload: CreateCoursePayload): Promise<CourseDetail> {
   const { data } = await api.post<CourseDetail>("/courses", payload);
   return data;
+}
+
+export async function updateCourse(courseId: string, payload: UpdateCoursePayload): Promise<CourseDetail> {
+  const { data } = await api.patch<CourseDetail>(`/courses/${courseId}`, payload);
+  return data;
+}
+
+export async function deleteCourse(courseId: string): Promise<void> {
+  await api.delete(`/courses/${courseId}`);
 }
 
 export async function createTopic(payload: TopicMutationPayload): Promise<TopicSummary> {

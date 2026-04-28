@@ -48,7 +48,6 @@ const AdminTopics = () => {
   const queryClient = useQueryClient();
   const coursesQuery = useAdminCourses();
   const topicsQuery = useAdminTopicsQuery();
-  const [topics, setTopics] = useState<TopicSummary[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -58,7 +57,10 @@ const AdminTopics = () => {
   const createTopicMutation = useMutation({
     mutationFn: (payload: TopicMutationPayload) => createTopicRequest(payload),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin", "topics"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "topics"] }),
+        queryClient.invalidateQueries({ queryKey: ["courses"] }),
+      ]);
       toast.success("Mavzu muvaffaqiyatli yaratildi.");
       closeModal();
     },
@@ -74,7 +76,10 @@ const AdminTopics = () => {
     mutationFn: ({ topicId, payload }: { topicId: string; payload: TopicMutationPayload }) =>
       updateTopicRequest(topicId, payload),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin", "topics"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "topics"] }),
+        queryClient.invalidateQueries({ queryKey: ["courses"] }),
+      ]);
       toast.success("Mavzu muvaffaqiyatli yangilandi.");
       closeModal();
     },
@@ -89,7 +94,10 @@ const AdminTopics = () => {
   const deleteTopicMutation = useMutation({
     mutationFn: (topicId: string) => deleteTopicRequest(topicId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin", "topics"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "topics"] }),
+        queryClient.invalidateQueries({ queryKey: ["courses"] }),
+      ]);
       toast.success("Mavzu o'chirildi.");
     },
     onError: (error) => {
@@ -114,12 +122,7 @@ const AdminTopics = () => {
   });
 
   const [form, setForm] = useState<TopicFormState>(createEmptyForm);
-
-  useEffect(() => {
-    if (topicsQuery.data) {
-      setTopics(topicsQuery.data);
-    }
-  }, [topicsQuery.data]);
+  const topics = useMemo(() => topicsQuery.data ?? [], [topicsQuery.data]);
 
   useEffect(() => {
     if (!form.courseId && courseOptions[0]?.id) {

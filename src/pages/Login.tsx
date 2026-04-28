@@ -16,10 +16,14 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const fromLocation = (location.state as { from?: { pathname?: string; search?: string; hash?: string } } | null)
+    ?.from;
+  const redirectTo = fromLocation?.pathname
+    ? `${fromLocation.pathname}${fromLocation.search ?? ""}${fromLocation.hash ?? ""}`
+    : "/dashboard";
 
   if (!loading && isAuthenticated) {
-    const nextPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? "/dashboard";
-    return <Navigate to={nextPath} replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -34,7 +38,7 @@ const Login = () => {
     setSubmitting(true);
     try {
       await login({ email: email.trim(), password });
-      navigate("/dashboard", { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(getApiErrorMessage(err, "Tizimga kirishda xato yuz berdi."));
     } finally {

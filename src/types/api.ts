@@ -47,6 +47,17 @@ export interface FirebaseAuthPayload {
   avatar?: string;
 }
 
+export interface UpdateUserPayload {
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  avatar?: string;
+  avatarUrl?: string;
+  photoURL?: string;
+}
+
 export interface TopicSummary {
   id: string;
   courseId: string;
@@ -106,6 +117,19 @@ export interface CreateCoursePayload {
   status: BackendCourseStatus;
   sortOrder: number;
   createdBy: string;
+}
+
+export interface UpdateCoursePayload {
+  title: string;
+  slug: string;
+  description: string;
+  icon?: string;
+  imageUrl?: string;
+  gradientFrom?: string;
+  gradientTo?: string;
+  level: BackendCourseLevel;
+  durationLabel: string;
+  status: BackendCourseStatus;
 }
 
 export interface CourseFormValues {

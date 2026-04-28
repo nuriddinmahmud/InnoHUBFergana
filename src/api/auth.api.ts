@@ -1,6 +1,13 @@
 import api from "./client";
-import { normalizeUser, saveAuthSession } from "@/lib/auth";
-import type { AuthResponse, FirebaseAuthPayload, LoginPayload, RegisterPayload, UserProfile } from "@/types/api";
+import { normalizeUser, saveAuthSession, saveUser } from "@/lib/auth";
+import type {
+  AuthResponse,
+  FirebaseAuthPayload,
+  LoginPayload,
+  RegisterPayload,
+  UpdateUserPayload,
+  UserProfile,
+} from "@/types/api";
 
 export function normalizeAuthResponse(data: Record<string, unknown>): AuthResponse {
   const userPayload =
@@ -91,6 +98,13 @@ export async function loginWithFirebase(payload: FirebaseAuthPayload) {
 export async function getCurrentUser(): Promise<UserProfile> {
   const { data } = await api.get<Record<string, unknown>>("/auth/me");
   return normalizeUser((data.user as Record<string, unknown> | undefined) ?? data);
+}
+
+export async function updateCurrentUser(payload: UpdateUserPayload): Promise<UserProfile> {
+  const { data } = await api.patch<Record<string, unknown>>("/users/me", payload);
+  const updatedUser = normalizeUser((data.user as Record<string, unknown> | undefined) ?? data);
+  saveUser(updatedUser);
+  return updatedUser;
 }
 
 export async function logout() {

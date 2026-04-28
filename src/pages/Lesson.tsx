@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import ReactMarkdown from "react-markdown";
+import ReactPlayer from "react-player";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3 } from "lucide-react";
@@ -10,17 +11,91 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useEnrolledCourse } from "@/hooks/useEnrolledCourses";
 import { getApiErrorMessage } from "@/lib/api";
 
+type WatchRange = {
+  start: number;
+  end: number;
+};
+
+const COMPLETION_THRESHOLD_PERCENT = 90;
+const SEEK_JUMP_TOLERANCE_SECONDS = 6;
+const TRACK_PROGRESS_DEBOUNCE_MS = 800;
+
+function getVideoSource(videoIdOrUrl: string) {
+  const source = videoIdOrUrl.trim();
+
+  if (!source) {
+    return "";
+  }
+
+  if (/^(https?:|\/|blob:|data:)/i.test(source)) {
+    return source;
+  }
+
+  return `https://www.youtube.com/watch?v=${encodeURIComponent(source)}&cc_load_policy=1&cc_lang_pref=uz&rel=0`;
+}
+
+function mergeWatchRange(ranges: WatchRange[], nextRange: WatchRange) {
+  if (nextRange.end <= nextRange.start) {
+    return ranges;
+  }
+
+  const sortedRanges = [...ranges, nextRange].sort((first, second) => first.start - second.start);
+  const mergedRanges: WatchRange[] = [];
+
+  sortedRanges.forEach((range) => {
+    const previousRange = mergedRanges[mergedRanges.length - 1];
+
+    if (!previousRange || range.start > previousRange.end) {
+      mergedRanges.push({ ...range });
+      return;
+    }
+
+    previousRange.end = Math.max(previousRange.end, range.end);
+  });
+
+  return mergedRanges;
+}
+
+function getWatchRangesDuration(ranges: WatchRange[]) {
+  return ranges.reduce((total, range) => total + Math.max(0, range.end - range.start), 0);
+}
+
+function getMediaSnapshot(event: SyntheticEvent<HTMLVideoElement>) {
+  const media = event.currentTarget;
+  const currentTime = Number.isFinite(media.currentTime) ? media.currentTime : 0;
+  const duration = Number.isFinite(media.duration) && media.duration > 0 ? media.duration : 0;
+
+  return {
+    currentTime,
+    duration,
+  };
+}
+
 const Lesson = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { courseId = "", lessonId = "" } = useParams<{ courseId: string; lessonId: string }>();
   const enrolledCourseQuery = useEnrolledCourse(courseId, true);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [watchedSeconds, setWatchedSeconds] = useState(0);
+  const [durationSeconds, setDurationSeconds] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [progressError, setProgressError] = useState("");
+  const [playerError, setPlayerError] = useState("");
+  const watchedRangesRef = useRef<WatchRange[]>([]);
+  const savedWatchSecondsRef = useRef(0);
+  const watchedSecondsRef = useRef(0);
+  const lastPlaybackSecondRef = useRef<number | null>(null);
+  const completionRequestedRef = useRef(false);
+  const trackedWatchSecondsRef = useRef(0);
 
   const course = enrolledCourseQuery.data;
-  const topics = course?.topics ?? course?.lessons ?? [];
+  const topics = useMemo(() => {
+    if (!course) {
+      return [];
+    }
+
+    return course.topics?.length ? course.topics : course.lessons ?? [];
+  }, [course]);
   const currentTopicIndex = useMemo(
     () => topics.findIndex((topic) => topic.id === lessonId),
     [lessonId, topics],
@@ -28,48 +103,165 @@ const Lesson = () => {
   const currentTopic = currentTopicIndex >= 0 ? topics[currentTopicIndex] : topics[0];
   const previousTopic = currentTopicIndex > 0 ? topics[currentTopicIndex - 1] : null;
   const nextTopic = currentTopicIndex >= 0 ? topics[currentTopicIndex + 1] : null;
-
-  useEffect(() => {
-    setElapsedSeconds(currentTopic?.watchSeconds ?? 0);
-    setIsCompleted(Boolean(currentTopic?.completed));
-    setProgressError("");
-  }, [currentTopic?.completed, currentTopic?.id, currentTopic?.watchSeconds]);
-
-  useEffect(() => {
-    if (!currentTopic) return;
-
-    const tick = window.setInterval(() => {
-      setElapsedSeconds((current) => current + 5);
-    }, 5000);
-
-    return () => window.clearInterval(tick);
-  }, [currentTopic?.id]);
-
-  useEffect(() => {
-    if (!currentTopic || elapsedSeconds === 0) return;
-
-    const controller = window.setTimeout(async () => {
-      try {
-        await trackLessonProgress(currentTopic.id, { watchSeconds: Math.abs(elapsedSeconds) });
-        setProgressError("");
-      } catch (error) {
-        setProgressError(getApiErrorMessage(error, "Progressni saqlashda xato yuz berdi."));
-      }
-    }, 300);
-
-    return () => window.clearTimeout(controller);
-  }, [currentTopic, elapsedSeconds]);
+  const videoSource = currentTopic ? getVideoSource(currentTopic.videoId) : "";
+  const watchedPercent = durationSeconds > 0 ? Math.min(100, Math.round((watchedSeconds / durationSeconds) * 100)) : 0;
+  const hasWatchedEnough = watchedPercent >= COMPLETION_THRESHOLD_PERCENT;
 
   const completeMutation = useMutation({
     mutationFn: () => completeLesson(currentTopic!.id),
     onSuccess: async () => {
       setIsCompleted(true);
+      setProgressError("");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["enrollments", "my-courses"] }),
         queryClient.invalidateQueries({ queryKey: ["enrollments", "my-courses", courseId] }),
       ]);
     },
+    onError: (error) => {
+      completionRequestedRef.current = false;
+      setProgressError(getApiErrorMessage(error, "Darsni tugatishda xato yuz berdi."));
+    },
   });
+
+  const requestCompletionIfQualified = useCallback(
+    (nextWatchedSeconds: number, nextDurationSeconds: number) => {
+      if (!currentTopic || isCompleted || completionRequestedRef.current || completeMutation.isPending) {
+        return;
+      }
+
+      if (nextDurationSeconds <= 0) {
+        return;
+      }
+
+      const nextPercent = (nextWatchedSeconds / nextDurationSeconds) * 100;
+
+      if (nextPercent >= COMPLETION_THRESHOLD_PERCENT) {
+        completionRequestedRef.current = true;
+        completeMutation.mutate();
+      }
+    },
+    [completeMutation, currentTopic, isCompleted],
+  );
+
+  const setWatchedSecondsValue = useCallback((nextWatchedSeconds: number) => {
+    const normalizedSeconds = Math.max(0, Math.floor(nextWatchedSeconds));
+    watchedSecondsRef.current = normalizedSeconds;
+    setWatchedSeconds(normalizedSeconds);
+  }, []);
+
+  const recordPlaybackPosition = useCallback(
+    (currentTime: number, duration: number) => {
+      if (!currentTopic) {
+        return;
+      }
+
+      if (duration > 0) {
+        setDurationSeconds(duration);
+      }
+
+      const previousTime = lastPlaybackSecondRef.current;
+      lastPlaybackSecondRef.current = currentTime;
+
+      if (previousTime === null) {
+        return;
+      }
+
+      const delta = currentTime - previousTime;
+
+      if (delta <= 0 || delta > SEEK_JUMP_TOLERANCE_SECONDS) {
+        return;
+      }
+
+      const rangeEnd = duration > 0 ? Math.min(currentTime, duration) : currentTime;
+      const rangeStart = Math.max(0, Math.min(previousTime, rangeEnd));
+      watchedRangesRef.current = mergeWatchRange(watchedRangesRef.current, {
+        start: rangeStart,
+        end: rangeEnd,
+      });
+
+      const sessionWatchedSeconds = getWatchRangesDuration(watchedRangesRef.current);
+      const nextWatchedSeconds = savedWatchSecondsRef.current + sessionWatchedSeconds;
+      const nextDurationSeconds = duration || durationSeconds;
+
+      setWatchedSecondsValue(nextWatchedSeconds);
+      requestCompletionIfQualified(nextWatchedSeconds, nextDurationSeconds);
+    },
+    [currentTopic, durationSeconds, requestCompletionIfQualified, setWatchedSecondsValue],
+  );
+
+  const handlePlayerProgress = useCallback(
+    (event: SyntheticEvent<HTMLVideoElement>) => {
+      const { currentTime, duration } = getMediaSnapshot(event);
+      recordPlaybackPosition(currentTime, duration);
+    },
+    [recordPlaybackPosition],
+  );
+
+  const handlePlayerEnded = useCallback(
+    (event: SyntheticEvent<HTMLVideoElement>) => {
+      const { currentTime, duration } = getMediaSnapshot(event);
+      const finalDurationSeconds = duration || durationSeconds;
+      const finalCurrentTime = finalDurationSeconds > 0 ? finalDurationSeconds : currentTime;
+
+      recordPlaybackPosition(finalCurrentTime, finalDurationSeconds);
+      lastPlaybackSecondRef.current = null;
+      requestCompletionIfQualified(watchedSecondsRef.current, finalDurationSeconds);
+    },
+    [durationSeconds, recordPlaybackPosition, requestCompletionIfQualified],
+  );
+
+  const handlePlayerSeeked = useCallback((event: SyntheticEvent<HTMLVideoElement>) => {
+    const { currentTime } = getMediaSnapshot(event);
+    lastPlaybackSecondRef.current = currentTime;
+  }, []);
+
+  const handleDurationChange = useCallback(
+    (event: SyntheticEvent<HTMLVideoElement>) => {
+      const { duration } = getMediaSnapshot(event);
+
+      if (duration <= 0) {
+        return;
+      }
+
+      setDurationSeconds(duration);
+      requestCompletionIfQualified(watchedSecondsRef.current, duration);
+    },
+    [requestCompletionIfQualified],
+  );
+
+  useEffect(() => {
+    const initialWatchSeconds = currentTopic?.watchSeconds ?? 0;
+
+    savedWatchSecondsRef.current = initialWatchSeconds;
+    watchedSecondsRef.current = initialWatchSeconds;
+    watchedRangesRef.current = [];
+    lastPlaybackSecondRef.current = null;
+    completionRequestedRef.current = Boolean(currentTopic?.completed);
+    trackedWatchSecondsRef.current = initialWatchSeconds;
+    setWatchedSeconds(initialWatchSeconds);
+    setDurationSeconds(0);
+    setIsCompleted(Boolean(currentTopic?.completed));
+    setProgressError("");
+    setPlayerError("");
+  }, [currentTopic?.completed, currentTopic?.id, currentTopic?.watchSeconds]);
+
+  useEffect(() => {
+    if (!currentTopic || watchedSeconds <= 0 || watchedSeconds === trackedWatchSecondsRef.current) {
+      return;
+    }
+
+    const controller = window.setTimeout(async () => {
+      try {
+        await trackLessonProgress(currentTopic.id, { watchSeconds: watchedSeconds });
+        trackedWatchSecondsRef.current = watchedSeconds;
+        setProgressError("");
+      } catch (error) {
+        setProgressError(getApiErrorMessage(error, "Progressni saqlashda xato yuz berdi."));
+      }
+    }, TRACK_PROGRESS_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(controller);
+  }, [currentTopic, watchedSeconds]);
 
   if (enrolledCourseQuery.isLoading) {
     return (
@@ -111,13 +303,28 @@ const Lesson = () => {
           <div className="space-y-6">
             <Card className="overflow-hidden border border-gray-200 bg-gray-50 dark:border-[#1E293B] dark:bg-[#111111]">
               <CardContent className="p-4 sm:p-6">
-                <iframe
-                  src={`https://www.youtube.com/embed/${currentTopic.videoId}?cc_load_policy=1&cc_lang_pref=uz&rel=0`}
-                  title={currentTopic.title}
-                  className="aspect-video w-full rounded-xl border border-gray-200 dark:border-[#1E293B]"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
+                <div className="aspect-video overflow-hidden rounded-xl border border-gray-200 bg-black dark:border-[#1E293B]">
+                  {videoSource ? (
+                    <ReactPlayer
+                      src={videoSource}
+                      controls
+                      playsInline
+                      width="100%"
+                      height="100%"
+                      onProgress={handlePlayerProgress}
+                      onTimeUpdate={handlePlayerProgress}
+                      onDurationChange={handleDurationChange}
+                      onSeeked={handlePlayerSeeked}
+                      onEnded={handlePlayerEnded}
+                      onError={() => setPlayerError("Videoni yuklashda xato yuz berdi.")}
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-4 text-center text-sm text-white/70">
+                      Bu dars uchun video manzili mavjud emas.
+                    </div>
+                  )}
+                </div>
+                {playerError ? <p className="mt-3 text-sm text-red-500">{playerError}</p> : null}
               </CardContent>
             </Card>
 
@@ -137,19 +344,38 @@ const Lesson = () => {
                 </div>
 
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div className="space-y-2">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <p className="text-sm text-gray-500 dark:text-[#94A3B8]">
-                      Tomosha vaqti: <span className="font-semibold text-gray-900 dark:text-[#F8FAFC]">{elapsedSeconds}s</span>
+                      Haqiqiy tomosha:{" "}
+                      <span className="font-semibold text-gray-900 dark:text-[#F8FAFC]">{watchedSeconds}s</span>
+                      {durationSeconds > 0 ? (
+                        <span className="text-gray-500 dark:text-[#94A3B8]"> / {Math.floor(durationSeconds)}s ({watchedPercent}%)</span>
+                      ) : null}
+                    </p>
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-[#1E293B]">
+                      <div
+                        className="h-full rounded-full bg-[#22C55E] transition-all"
+                        style={{ width: `${watchedPercent}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-[#94A3B8]">
+                      Dars avtomatik yakunlanishi uchun videoning kamida {COMPLETION_THRESHOLD_PERCENT}% qismi tomosha qilinishi kerak.
                     </p>
                     {progressError ? <p className="text-sm text-red-500">{progressError}</p> : null}
                   </div>
 
                   <Button
                     className="bg-[#22C55E] font-semibold text-black hover:bg-[#16A34A]"
-                    onClick={() => completeMutation.mutate()}
-                    disabled={completeMutation.isPending || isCompleted}
+                    onClick={() => requestCompletionIfQualified(watchedSecondsRef.current, durationSeconds)}
+                    disabled={completeMutation.isPending || isCompleted || !hasWatchedEnough}
                   >
-                    {isCompleted ? "Tugatilgan" : completeMutation.isPending ? "Saqlanmoqda..." : "Darsni tugatish"}
+                    {isCompleted
+                      ? "Tugatilgan"
+                      : completeMutation.isPending
+                        ? "Saqlanmoqda..."
+                        : hasWatchedEnough
+                          ? "Darsni tugatish"
+                          : "90% tomosha qiling"}
                   </Button>
                 </div>
 

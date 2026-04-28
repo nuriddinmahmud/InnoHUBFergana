@@ -55,9 +55,22 @@ function shouldFallbackToRedirect(error: unknown) {
   );
 }
 
+function getGoogleAuthConfig() {
+  if (!auth || !googleProvider) {
+    throw new Error("Google orqali kirish hozircha sozlanmagan. Firebase sozlamalarini tekshiring.");
+  }
+
+  return {
+    auth,
+    googleProvider,
+  };
+}
+
 export async function signInWithGoogle(): Promise<GoogleSignInResult> {
+  const firebaseAuth = getGoogleAuthConfig();
+
   try {
-    const result = await signInWithPopup(auth, googleProvider);
+    const result = await signInWithPopup(firebaseAuth.auth, firebaseAuth.googleProvider);
 
     return {
       status: "success",
@@ -65,7 +78,7 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
     };
   } catch (error) {
     if (shouldFallbackToRedirect(error)) {
-      await signInWithRedirect(auth, googleProvider);
+      await signInWithRedirect(firebaseAuth.auth, firebaseAuth.googleProvider);
       return {
         status: "redirect",
       };
@@ -76,6 +89,10 @@ export async function signInWithGoogle(): Promise<GoogleSignInResult> {
 }
 
 export async function getGoogleRedirectProfile(): Promise<GoogleAuthProfile | null> {
+  if (!auth) {
+    return null;
+  }
+
   const result = await getRedirectResult(auth);
 
   if (!result) {

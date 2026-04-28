@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+   
+   
+</head>
+
+<body>
+
+    
+    <p >IT shaharcha</p>
+
+    <b>Computer cases</b>
+
+    <a href="http://google.com/">Google</a>
+
+    <!-- <img src="https://www.climate-kic.org/wp-content/uploads/2024/03/INFORMA-Opinion-piece-image.png" alt="bu o'rmonning rasmi"> -->
+
+    <ul>
+        <li>Mahmudxon</li>
+        <li>Abdurashid</li>
+        <li>Baxtiyorjon</li>
+    </ul>
+
+    <ol>
+        <li>Mahmudxon</li>
+        <li>Abdurashid</li>
+        <li>Baxtiyorjon</li>
+    </ol>
+
+    <i>Mahmudxon Abdurashid bilan bir xil yozadi , ular code yoza olishadi</i>
+
+    <table border="1px">
+        <tr>
+            <th>Mahmudxon</th>
+            <th>Sotvoldiyev</th>
+        </tr>
+        <tr>
+            <th>Abdurashid</th>
+            <th>Umaraliyev</th>
+        </tr>
+
+        <tr>
+            <th>Baxtiyorjon</th>
+            <th>Yigitaliyev</th>
+        </tr>
+    </table>
+
+    <br>
+
+    <form>
+        Name: <input type="text"><br>
+        <input type="submit" value="Submit">
+    </form>
+
+</body>
+
+</html>

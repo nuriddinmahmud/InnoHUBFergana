@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { getApiErrorMessage } from "@/lib/api";
+import { isFirebaseAuthEnabled } from "@/lib/firebase";
 import { getGoogleAuthErrorMessage, getGoogleRedirectProfile, signInWithGoogle } from "@/lib/googleAuth";
 
 type RegisterFormState = {
@@ -41,11 +42,11 @@ const Register = () => {
   );
   const isSubmitting = submitting || googleSubmitting || googleRedirectSubmitting;
 
-  if (!loading && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   useEffect(() => {
+    if (loading || isAuthenticated) {
+      return;
+    }
+
     let isMounted = true;
 
     const completeRedirectSignIn = async () => {
@@ -87,7 +88,11 @@ const Register = () => {
     return () => {
       isMounted = false;
     };
-  }, [loginWithFirebase, navigate]);
+  }, [isAuthenticated, loading, loginWithFirebase, navigate]);
+
+  if (!loading && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleRegister = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -161,6 +166,14 @@ const Register = () => {
 
   const handleGoogleRegister = async () => {
     setError("");
+
+    if (!isFirebaseAuthEnabled) {
+      const message = "Google orqali kirish hozircha sozlanmagan. Firebase sozlamalarini tekshiring.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
     setGoogleSubmitting(true);
 
     try {
@@ -211,7 +224,7 @@ const Register = () => {
               <Button
                 type="button"
                 onClick={handleGoogleRegister}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isFirebaseAuthEnabled}
                 className="h-12 w-full rounded-xl border border-[#1E293B] bg-[#0A0A0A] font-semibold text-[#F8FAFC] hover:border-[#22C55E] hover:bg-[#111111]"
               >
                 {googleSubmitting ? (
@@ -223,6 +236,11 @@ const Register = () => {
                   <>
                     <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                     Completing Google sign-in...
+                  </>
+                ) : !isFirebaseAuthEnabled ? (
+                  <>
+                    <GoogleIcon className="mr-3 h-5 w-5" />
+                    Google sign-in unavailable
                   </>
                 ) : (
                   <>

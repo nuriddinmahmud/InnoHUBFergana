@@ -1,13 +1,17 @@
-import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Edit3, ImagePlus, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { createCourse as createCourseRequest } from "@/api/admin";
+import {
+  createCourse as createCourseRequest,
+  deleteCourse as deleteCourseRequest,
+  updateCourse as updateCourseRequest,
+} from "@/api/admin";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { CourseFormModal } from "@/components/admin/CourseFormModal";
 import { useAuth } from "@/context/AuthContext";
 import { useAdminCourses as useAdminCoursesQuery } from "@/hooks/useAdminData";
-import { buildCreateCoursePayload, validateCourseForm } from "@/lib/course-admin";
+import { buildCreateCoursePayload, buildUpdateCoursePayload, validateCourseForm } from "@/lib/course-admin";
 import { getApiErrorMessage } from "@/lib/api";
 import type { CourseFormValues, CourseLevel, CourseStatus, CreateCoursePayload } from "@/types/api";
 
@@ -41,7 +45,6 @@ const AdminCourses = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const adminCoursesQuery = useAdminCoursesQuery();
-  const [courses, setCourses] = useState<AdminCourseRow[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -53,7 +56,11 @@ const AdminCourses = () => {
   const createCourseMutation = useMutation({
     mutationFn: (payload: CreateCoursePayload) => createCourseRequest(payload),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin", "courses"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "courses"] }),
+        queryClient.invalidateQueries({ queryKey: ["courses"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "stats"] }),
+      ]);
       toast.success("Kurs muvaffaqiyatli yaratildi.");
       closeModal();
     },
@@ -64,21 +71,53 @@ const AdminCourses = () => {
     },
   });
 
-  useEffect(() => {
+  const updateCourseMutation = useMutation({
+    mutationFn: ({ courseId, payload }: { courseId: string; payload: ReturnType<typeof buildUpdateCoursePayload> }) =>
+      updateCourseRequest(courseId, payload),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "courses"] }),
+        queryClient.invalidateQueries({ queryKey: ["courses"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "stats"] }),
+      ]);
+      toast.success("Kurs muvaffaqiyatli yangilandi.");
+      closeModal();
+    },
+    onError: (error) => {
+      const message = getApiErrorMessage(error, "Kursni yangilashda xato yuz berdi.");
+      setFormError(message);
+      toast.error(message);
+    },
+  });
+
+  const deleteCourseMutation = useMutation({
+    mutationFn: (courseId: string) => deleteCourseRequest(courseId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "courses"] }),
+        queryClient.invalidateQueries({ queryKey: ["courses"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "stats"] }),
+      ]);
+      toast.success("Kurs muvaffaqiyatli o'chirildi.");
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, "Kursni o'chirishda xato yuz berdi."));
+    },
+  });
+
+  const courses = useMemo<AdminCourseRow[]>(() => {
     const normalizedCourses = Array.isArray(adminCoursesQuery.data) ? adminCoursesQuery.data : [];
 
-    setCourses(
-      normalizedCourses.map((course) => ({
-        id: course.id,
-        title: course.title,
-        description: course.description,
-        level: course.level,
-        durationLabel: course.duration,
-        image: course.image ?? "",
-        status: toStatusLabel(course.status),
-        topicCount: course.totalLessons,
-      })),
-    );
+    return normalizedCourses.map((course) => ({
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      level: course.level,
+      durationLabel: course.duration,
+      image: course.image ?? "",
+      status: toStatusLabel(course.status),
+      topicCount: course.totalLessons,
+    }));
   }, [adminCoursesQuery.data]);
 
   const filteredCourses = useMemo(() => {
@@ -162,31 +201,16 @@ const AdminCourses = () => {
       return;
     }
 
+    if (editingId) {
+      const payload = buildUpdateCoursePayload(form);
+      await updateCourseMutation.mutateAsync({ courseId: editingId, payload });
+      return;
+    }
+
     if (!user?.id) {
       const message = "Kurs yaratish uchun admin foydalanuvchi aniqlanmadi.";
       setFormError(message);
       toast.error(message);
-      return;
-    }
-
-    if (editingId) {
-      setCourses((current) =>
-        current.map((course) =>
-          course.id === editingId
-            ? {
-                ...course,
-                title: form.title.trim(),
-                description: form.description.trim(),
-                level: form.level,
-                durationLabel: form.durationLabel.trim(),
-                image: form.imageUrl.trim(),
-                status: form.status,
-              }
-            : course,
-        ),
-      );
-      toast.success("Kurs formasi yangilandi.");
-      closeModal();
       return;
     }
 
@@ -201,8 +225,7 @@ const AdminCourses = () => {
   };
 
   const handleDelete = (courseId: string) => {
-    setCourses((current) => current.filter((course) => course.id !== courseId));
-    toast.success("Kurs ro'yxatdan olib tashlandi.");
+    deleteCourseMutation.mutate(courseId);
   };
 
   return (
@@ -315,7 +338,8 @@ const AdminCourses = () => {
                               <button
                                 type="button"
                                 onClick={() => openEditModal(course)}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0A0A0A] text-[#94A3B8] transition hover:border-[#22C55E] hover:text-[#22C55E]"
+                                disabled={updateCourseMutation.isPending || deleteCourseMutation.isPending}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0A0A0A] text-[#94A3B8] transition hover:border-[#22C55E] hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-70"
                                 title="Tahrirlash"
                               >
                                 <Edit3 className="h-4 w-4" />
@@ -323,7 +347,8 @@ const AdminCourses = () => {
                               <button
                                 type="button"
                                 onClick={() => handleDelete(course.id)}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0A0A0A] text-[#94A3B8] transition hover:border-[#ef4444] hover:text-[#ef4444]"
+                                disabled={deleteCourseMutation.isPending}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0A0A0A] text-[#94A3B8] transition hover:border-[#ef4444] hover:text-[#ef4444] disabled:cursor-not-allowed disabled:opacity-70"
                                 title="O'chirish"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -344,7 +369,7 @@ const AdminCourses = () => {
               mode={editingId ? "edit" : "create"}
               form={form}
               formError={formError}
-              isSubmitting={createCourseMutation.isPending}
+              isSubmitting={createCourseMutation.isPending || updateCourseMutation.isPending}
               previewImage={previewImage}
               selectedImageName={selectedImageName}
               onClose={closeModal}
